@@ -24,12 +24,14 @@
   <div id="scene2" class="scene">
     <h2>Scene 2: Surges and Spikes</h2>
     <svg id="usTrend"></svg>
+    <button onclick="nextScene(1)">Back</button>
     <button onclick="nextScene(3)">What About Individual States?</button>
   </div>
 
   <div id="scene3" class="scene">
     <h2>Scene 3: State-by-State Peaks</h2>
     <svg id="barChart"></svg>
+    <button onclick="nextScene(2)">Back</button>
     <button onclick="nextScene(4)">Explore Your State</button>
   </div>
 
@@ -38,6 +40,7 @@
     <label for="dropdown">Select a state:</label>
     <select id="dropdown"></select>
     <svg id="stateLineChart"></svg>
+    <button onclick="nextScene(3)">Back</button>
   </div>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -52,6 +55,18 @@
 
     d3.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv", d3.autoType).then(data => {
       covidData = data;
+
+      // SCENE 1: Highlight first case
+      const first = data.find(d => d.date.getTime() === new Date("2020-01-21").getTime() && d.state === "Washington");
+      const svgFirst = d3.select("#mapScene")
+        .attr("viewBox", [0, 0, 800, 100]);
+
+      svgFirst.append("text")
+        .attr("x", 20)
+        .attr("y", 50)
+        .attr("font-size", 24)
+        .attr("fill", "steelblue")
+        .text(`📍 ${first.state}: ${first.cases} case`);
 
       // SCENE 2: U.S. Total Daily Cases Line Chart
       const nested = d3.rollups(
@@ -97,7 +112,7 @@
       // SCENE 3: Bar chart of peak daily cases per state
       const peakByState = d3.rollups(
         data,
-        v => d3.max(v, d => d.cases - (v[v.indexOf(d) - 1]?.cases || 0)),
+        v => d3.max(v, (d, i) => d.cases - (v[i - 1]?.cases || 0)),
         d => d.state
       ).sort((a, b) => d3.descending(a[1], b[1]));
 
@@ -143,7 +158,6 @@
         updateStateChart(e.target.value);
       });
 
-      // Initial state chart
       updateStateChart("California");
     });
 
