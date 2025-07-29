@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "d3-svg-annotation": "^2.5.1",
+    "topojson-client": "^3.1.0"
+  }
+}
