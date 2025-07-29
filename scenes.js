@@ -24,38 +24,40 @@ const annotationStyle = {
       .attr("viewBox", [0, 0, 960, 500]);
   
     const path = d3.geoPath();
-    const states = topojson.feature(us, us.objects.states);
+    const usStates = topojson.feature(us, us.objects.states);
   
     svg1.append("g")
       .selectAll("path")
-      .data(states.features)
+      .data(usStates.features)
       .join("path")
       .attr("fill", "#e0e0e0")
       .attr("stroke", "#fff")
       .attr("d", path);
   
     const firstCase = data.find(d => d.Date === "2020-01-21" && d.State === "Washington");
-    const projection = d3.geoAlbersUsa().fitSize([960, 500], states);
-    const coords = projection([-122.3321, 47.6062]); // Seattle, WAs
+    const projection = d3.geoAlbersUsa().fitSize([960, 500], usStates);
+    const coords = projection([-122.3321, 47.6062]); // Seattle, WA
   
-    svg1.append("circle")
-      .attr("cx", coords[0])
-      .attr("cy", coords[1])
-      .attr("r", 6)
-      .attr("fill", "red");
+    if (coords) {
+      svg1.append("circle")
+        .attr("cx", coords[0])
+        .attr("cy", coords[1])
+        .attr("r", 6)
+        .attr("fill", "red");
   
-    const annotations1 = d3.annotation()
-      .annotations([{
-        ...annotationStyle,
-        x: coords[0],
-        y: coords[1],
-        note: {
-          title: "First Case",
-          label: "Jan 21, 2020 – Washington reports first COVID case."
-        }
-      }]);
+      const annotations1 = d3.annotation()
+        .annotations([{
+          ...annotationStyle,
+          x: coords[0],
+          y: coords[1],
+          note: {
+            title: "First Case",
+            label: "Jan 21, 2020 – Washington reports first COVID case."
+          }
+        }]);
   
-    svg1.append("g").call(annotations1);
+      svg1.append("g").call(annotations1);
+    }
   
     // Scene 2: US Trendline
     const svg2 = d3.select("#usTrend")
@@ -166,11 +168,10 @@ const annotationStyle = {
       .attr("viewBox", [0, 0, 960, 500]);
   
     const dropdown = d3.select("#dropdown");
-    const stateNames = Array.from(new Set(data.map(d => d.State))).sort();
-
+    const stateList = Array.from(new Set(data.map(d => d.State))).sort();
   
     dropdown.selectAll("option")
-      .data(stateNames)
+      .data(stateList)
       .enter().append("option")
       .text(d => d);
   
@@ -205,21 +206,24 @@ const annotationStyle = {
           .x(d => x4(d.Date))
           .y(d => y4(d.Cases)));
   
-      const annotations4 = d3.annotation()
-        .annotations([{
-          ...annotationStyle,
-          x: x4(new Date("2020-11-01")),
-          y: y4(timeData.find(d => d.Date.toISOString().startsWith("2020-11")).Cases),
-          note: {
-            title: "Fall Surge",
-            label: `${selectedState} saw rising cases in fall 2020.`
-          }
-        }]);
+      const novData = timeData.find(d => d.Date.getMonth() === 10); // November = 10 (0-based index)
+      if (novData) {
+        const annotations4 = d3.annotation()
+          .annotations([{
+            ...annotationStyle,
+            x: x4(novData.Date),
+            y: y4(novData.Cases),
+            note: {
+              title: "Fall Surge",
+              label: `${selectedState} saw rising cases in fall 2020.`
+            }
+          }]);
   
-      svg4.append("g").call(annotations4);
+        svg4.append("g").call(annotations4);
+      }
     }
   
-    drawStateChart(stateNames[0]);
+    drawStateChart(stateList[0]);
     dropdown.on("change", function() {
       drawStateChart(this.value);
     });
