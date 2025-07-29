@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>COVID-19 Narrative Visualization hello</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; }
+    .scene { display: none; padding: 40px; }
+    .active { display: block; }
+    svg { width: 100%; height: 500px; }
+    button { margin-top: 20px; padding: 10px 20px; }
+    #dropdown { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div id="scene1" class="scene active">
+    <h2>Scene 1: Where It Started</h2>
+    <p>First confirmed U.S. COVID-19 case reported in Washington on Jan 21, 2020.</p>
+    <svg id="mapScene"></svg>
+    <button onclick="nextScene(2)">See What Happened Next</button>
+  </div>
+
+  <div id="scene2" class="scene">
+    <h2>Scene 2: Surges and Spikes</h2>
+    <svg id="usTrend"></svg>
+    <button onclick="nextScene(3)">What About Individual States?</button>
+  </div>
+
+  <div id="scene3" class="scene">
+    <h2>Scene 3: State-by-State Peaks</h2>
+    <svg id="barChart"></svg>
+    <button onclick="nextScene(4)">Explore Your State</button>
+  </div>
+
+  <div id="scene4" class="scene">
+    <h2>Scene 4: Explore Your State</h2>
+    <label for="dropdown">Select a state:</label>
+    <select id="dropdown"></select>
+    <svg id="stateLineChart"></svg>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+    const scenes = [1, 2, 3, 4];
+    function nextScene(n) {
+      scenes.forEach(i => document.getElementById(`scene${i}`).classList.remove('active'));
+      document.getElementById(`scene${n}`).classList.add('active');
+    }
+
+    // Placeholder data setup
+    // You will replace this with actual d3.csv and data joins
+    d3.select('#mapScene')
+      .append('text')
+      .attr('x', 50)
+      .attr('y', 50)
+      .text('U.S. Map Placeholder with Washington Highlighted');
+
+    d3.select('#usTrend')
+      .append('text')
+      .attr('x', 50)
+      .attr('y', 50)
+      .text('Line Chart Placeholder (U.S. New Cases Over Time)');
+
+    d3.select('#barChart')
+      .append('text')
+      .attr('x', 50)
+      .attr('y', 50)
+      .text('Bar Chart Placeholder (State Daily Peaks)');
+
+    const dropdown = d3.select('#dropdown');
+    const states = ['California', 'Texas', 'New York', 'Florida'];
+    dropdown.selectAll('option')
+      .data(states)
+      .enter()
+      .append('option')
+      .text(d => d);
+
+    dropdown.on('change', function(e) {
+      const state = e.target.value;
+      updateStateChart(state);
+    });
+
+    function updateStateChart(state) {
+      const svg = d3.select('#stateLineChart');
+      svg.selectAll('*').remove();
+      svg.append('text')
+        .attr('x', 50)
+        .attr('y', 50)
+        .text(`Line Chart Placeholder for ${state}`);
+    }
+  </script>
+</body>
+</html>
