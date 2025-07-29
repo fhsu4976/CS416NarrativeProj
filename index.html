@@ -11,12 +11,12 @@
     svg { width: 100%; height: 500px; }
     button { margin-top: 20px; padding: 10px 20px; }
     #dropdown { margin-top: 20px; }
+    .annotation { font-size: 14px; fill: darkslategray; font-style: italic; }
   </style>
 </head>
 <body>
   <div id="scene1" class="scene active">
     <h2>Scene 1: Where It Started</h2>
-    <p>First confirmed U.S. COVID-19 case reported in Washington on Jan 21, 2020.</p>
     <svg id="mapScene"></svg>
     <button onclick="nextScene(2)">See What Happened Next</button>
   </div>
@@ -24,6 +24,7 @@
   <div id="scene2" class="scene">
     <h2>Scene 2: Surges and Spikes</h2>
     <svg id="usTrend"></svg>
+    <div class="annotation">This chart shows the total confirmed COVID-19 cases in the U.S. over time.</div>
     <button onclick="nextScene(1)">Back</button>
     <button onclick="nextScene(3)">What About Individual States?</button>
   </div>
@@ -31,6 +32,7 @@
   <div id="scene3" class="scene">
     <h2>Scene 3: State-by-State Peaks</h2>
     <svg id="barChart"></svg>
+    <div class="annotation">Each bar represents the highest single-day spike in COVID-19 cases for a U.S. state.</div>
     <button onclick="nextScene(2)">Back</button>
     <button onclick="nextScene(4)">Explore Your State</button>
   </div>
@@ -40,10 +42,13 @@
     <label for="dropdown">Select a state:</label>
     <select id="dropdown"></select>
     <svg id="stateLineChart"></svg>
+    <div class="annotation">Track how COVID-19 case counts evolved in your selected state.</div>
     <button onclick="nextScene(3)">Back</button>
   </div>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
   <script>
     const scenes = [1, 2, 3, 4];
     function nextScene(n) {
@@ -53,22 +58,61 @@
 
     let covidData = [], stateNames = [];
 
-    d3.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv", d3.autoType).then(data => {
+    Promise.all([
+      d3.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv", d3.autoType),
+      d3.json("https://d3js.org/us-10m.v1.json")
+    ]).then(([data, us]) => {
       covidData = data;
+      const width = 960, height = 500;
 
-      // SCENE 1: Highlight first case
+      // Scene 1 Map
+      const svgMap = d3.select("#mapScene")
+        .attr("viewBox", [0, 0, width, height]);
+
+      const projection = d3.geoAlbersUsa().fitSize([width, height], topojson.feature(us, us.objects.states));
+      const path = d3.geoPath().projection(projection);
+
+      svgMap.append("g")
+        .selectAll("path")
+        .data(topojson.feature(us, us.objects.states).features)
+        .join("path")
+        .attr("d", path)
+        .attr("fill", "#eee")
+        .attr("stroke", "#999");
+
       const first = data.find(d => d.date.getTime() === new Date("2020-01-21").getTime() && d.state === "Washington");
-      const svgFirst = d3.select("#mapScene")
-        .attr("viewBox", [0, 0, 800, 100]);
+      const coords = projection([-122.3321, 47.6062]); // Seattle
 
-      svgFirst.append("text")
-        .attr("x", 20)
-        .attr("y", 50)
-        .attr("font-size", 24)
-        .attr("fill", "steelblue")
-        .text(`📍 ${first.state}: ${first.cases} case`);
+      svgMap.append("circle")
+        .attr("cx", coords[0])
+        .attr("cy", coords[1])
+        .attr("r", 6)
+        .attr("fill", "red")
+        .append("title").text("First U.S. case: Washington (1 case)");
 
-      // SCENE 2: U.S. Total Daily Cases Line Chart
+      const annotations = [
+        {
+          note: {
+            title: "First U.S. COVID-19 Case",
+            label: "Reported in Seattle, WA on Jan 21, 2020",
+            align: "left"
+          },
+          x: coords[0],
+          y: coords[1],
+          dy: -50,
+          dx: 50
+        }
+      ];
+
+      const makeAnnotations = d3.annotation()
+        .type(d3.annotationLabel)
+        .annotations(annotations);
+
+      svgMap.append("g")
+        .attr("class", "annotation-group")
+        .call(makeAnnotations);
+
+      // Scene 2
       const nested = d3.rollups(
         data,
         v => d3.sum(v, d => d.cases),
@@ -78,29 +122,18 @@
       const dates = nested.map(d => d[0]);
       const totals = nested.map(d => d[1]);
 
-      const width = 800, height = 500, margin = {top: 20, right: 30, bottom: 30, left: 50};
-      const svg = d3.select("#usTrend")
-        .attr("viewBox", [0, 0, width, height]);
+      const svg = d3.select("#usTrend").attr("viewBox", [0, 0, width, height]);
+      const margin = {top: 20, right: 30, bottom: 30, left: 50};
 
-      const x = d3.scaleTime()
-        .domain(d3.extent(dates, d => new Date(d)))
-        .range([margin.left, width - margin.right]);
-
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(totals)]).nice()
-        .range([height - margin.bottom, margin.top]);
+      const x = d3.scaleTime().domain(d3.extent(dates)).range([margin.left, width - margin.right]);
+      const y = d3.scaleLinear().domain([0, d3.max(totals)]).nice().range([height - margin.bottom, margin.top]);
 
       const line = d3.line()
-        .x(d => x(new Date(d[0])))
+        .x(d => x(d[0]))
         .y(d => y(d[1]));
 
-      svg.append("g")
-        .attr("transform", `translate(0,${height - margin.bottom})`)
-        .call(d3.axisBottom(x));
-
-      svg.append("g")
-        .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(y));
+      svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x));
+      svg.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y));
 
       svg.append("path")
         .datum(nested)
@@ -109,32 +142,19 @@
         .attr("stroke-width", 2)
         .attr("d", line);
 
-      // SCENE 3: Bar chart of peak daily cases per state
+      // Scene 3
       const peakByState = d3.rollups(
         data,
         v => d3.max(v, (d, i) => d.cases - (v[i - 1]?.cases || 0)),
         d => d.state
       ).sort((a, b) => d3.descending(a[1], b[1]));
 
-      const svgBar = d3.select("#barChart")
-        .attr("viewBox", [0, 0, width, height]);
+      const svgBar = d3.select("#barChart").attr("viewBox", [0, 0, width, height]);
+      const xBar = d3.scaleLinear().domain([0, d3.max(peakByState, d => d[1])]).nice().range([margin.left, width - margin.right]);
+      const yBar = d3.scaleBand().domain(peakByState.map(d => d[0])).range([margin.top, height - margin.bottom]).padding(0.1);
 
-      const xBar = d3.scaleLinear()
-        .domain([0, d3.max(peakByState, d => d[1])]).nice()
-        .range([margin.left, width - margin.right]);
-
-      const yBar = d3.scaleBand()
-        .domain(peakByState.map(d => d[0]))
-        .range([margin.top, height - margin.bottom])
-        .padding(0.1);
-
-      svgBar.append("g")
-        .attr("transform", `translate(0,${margin.top})`)
-        .call(d3.axisTop(xBar));
-
-      svgBar.append("g")
-        .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(yBar));
+      svgBar.append("g").attr("transform", `translate(0,${margin.top})`).call(d3.axisTop(xBar));
+      svgBar.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(yBar));
 
       svgBar.selectAll("rect")
         .data(peakByState)
@@ -143,21 +163,15 @@
         .attr("y", d => yBar(d[0]))
         .attr("width", d => xBar(d[1]) - xBar(0))
         .attr("height", yBar.bandwidth())
-        .attr("fill", "darkorange");
+        .attr("fill", "darkorange")
+        .append("title")
+        .text(d => `${d[0]}: Peak new cases = ${d[1]}`);
 
-      // SCENE 4: Populate dropdown and plot per-state chart
+      // Scene 4
       stateNames = Array.from(new Set(data.map(d => d.state))).sort();
       const dropdown = d3.select("#dropdown");
-      dropdown.selectAll("option")
-        .data(stateNames)
-        .enter()
-        .append("option")
-        .text(d => d);
-
-      dropdown.on("change", function(e) {
-        updateStateChart(e.target.value);
-      });
-
+      dropdown.selectAll("option").data(stateNames).enter().append("option").text(d => d);
+      dropdown.on("change", function(e) { updateStateChart(e.target.value); });
       updateStateChart("California");
     });
 
@@ -169,28 +183,14 @@
       svg.selectAll("*").remove();
 
       const width = 800, height = 500, margin = {top: 20, right: 30, bottom: 30, left: 50};
+      const x = d3.scaleTime().domain(d3.extent(nested, d => d[0])).range([margin.left, width - margin.right]);
+      const y = d3.scaleLinear().domain([0, d3.max(nested, d => d[1])]).nice().range([height - margin.bottom, margin.top]);
 
-      const x = d3.scaleTime()
-        .domain(d3.extent(nested, d => d[0]))
-        .range([margin.left, width - margin.right]);
-
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(nested, d => d[1])]).nice()
-        .range([height - margin.bottom, margin.top]);
-
-      const line = d3.line()
-        .x(d => x(d[0]))
-        .y(d => y(d[1]));
-
+      const line = d3.line().x(d => x(d[0])).y(d => y(d[1]));
       svg.attr("viewBox", [0, 0, width, height]);
 
-      svg.append("g")
-        .attr("transform", `translate(0,${height - margin.bottom})`)
-        .call(d3.axisBottom(x));
-
-      svg.append("g")
-        .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(y));
+      svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x));
+      svg.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y));
 
       svg.append("path")
         .datum(nested)
