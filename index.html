@@ -24,7 +24,6 @@
   <div id="scene2" class="scene">
     <h2>Scene 2: Surges and Spikes</h2>
     <svg id="usTrend"></svg>
-    <div id="scene2-annotation"></div>
     <button onclick="nextScene(1)">Back</button>
     <button onclick="nextScene(3)">What About Individual States?</button>
   </div>
@@ -32,7 +31,6 @@
   <div id="scene3" class="scene">
     <h2>Scene 3: State-by-State Peaks</h2>
     <svg id="barChart"></svg>
-    <div id="scene3-annotation"></div>
     <button onclick="nextScene(2)">Back</button>
     <button onclick="nextScene(4)">Explore Your State</button>
   </div>
@@ -42,7 +40,6 @@
     <label for="dropdown">Select a state:</label>
     <select id="dropdown"></select>
     <svg id="stateLineChart"></svg>
-    <div id="scene4-annotation"></div>
     <button onclick="nextScene(3)">Back</button>
   </div>
 
@@ -55,206 +52,7 @@
       scenes.forEach(i => document.getElementById(`scene${i}`).classList.remove('active'));
       document.getElementById(`scene${n}`).classList.add('active');
     }
-
-    let covidData = [], stateNames = [];
-
-    Promise.all([
-      d3.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv", d3.autoType),
-      d3.json("https://d3js.org/us-10m.v1.json")
-    ]).then(([data, us]) => {
-      covidData = data;
-      const width = 960, height = 500;
-
-      // Scene 1 Map
-      const svgMap = d3.select("#mapScene")
-        .attr("viewBox", [0, 0, width, height]);
-
-      const projection = d3.geoAlbersUsa().fitSize([width, height], topojson.feature(us, us.objects.states));
-      const path = d3.geoPath().projection(projection);
-
-      svgMap.append("g")
-        .selectAll("path")
-        .data(topojson.feature(us, us.objects.states).features)
-        .join("path")
-        .attr("d", path)
-        .attr("fill", "#eee")
-        .attr("stroke", "#999");
-
-      const first = data.find(d => d.date.getTime() === new Date("2020-01-21").getTime() && d.state === "Washington");
-      const coords = projection([-122.3321, 47.6062]); // Seattle
-
-      svgMap.append("circle")
-        .attr("cx", coords[0])
-        .attr("cy", coords[1])
-        .attr("r", 6)
-        .attr("fill", "red")
-        .append("title").text("First U.S. case: Washington (1 case)");
-
-      const annotations1 = d3.annotation()
-        .type(d3.annotationLabel)
-        .annotations([
-          {
-            note: {
-              title: "First U.S. COVID-19 Case",
-              label: "Reported in Seattle, WA on Jan 21, 2020",
-              align: "left"
-            },
-            x: coords[0],
-            y: coords[1],
-            dy: -50,
-            dx: 50
-          }
-        ]);
-
-      svgMap.append("g")
-        .attr("class", "annotation-group")
-        .call(annotations1);
-
-      // Scene 2: US Trend Line with Annotations
-      const nested = d3.rollups(
-        data,
-        v => d3.sum(v, d => d.cases),
-        d => d.date
-      ).sort((a, b) => d3.ascending(a[0], b[0]));
-
-      const dates = nested.map(d => d[0]);
-      const totals = nested.map(d => d[1]);
-
-      const svg2 = d3.select("#usTrend").attr("viewBox", [0, 0, width, height]);
-      const margin = {top: 20, right: 30, bottom: 30, left: 50};
-
-      const x = d3.scaleTime().domain(d3.extent(dates)).range([margin.left, width - margin.right]);
-      const y = d3.scaleLinear().domain([0, d3.max(totals)]).nice().range([height - margin.bottom, margin.top]);
-
-      const line = d3.line().x(d => x(d[0])).y(d => y(d[1]));
-
-      svg2.append("g").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x));
-      svg2.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y));
-
-      svg2.append("path")
-        .datum(nested)
-        .attr("fill", "none")
-        .attr("stroke", "steelblue")
-        .attr("stroke-width", 2)
-        .attr("d", line);
-
-      const annotations2 = d3.annotation()
-        .type(d3.annotationLabel)
-        .annotations([
-          {
-            note: {
-              title: "Rapid Rise in Cases",
-              label: "Significant increase in late March and July waves",
-              wrap: 200
-            },
-            x: x(new Date("2020-07-15")),
-            y: y(3500000),
-            dx: -50,
-            dy: -50
-          }
-        ]);
-
-      svg2.append("g")
-        .attr("class", "annotation-group")
-        .call(annotations2);
-
-      // Scene 3: Bar Chart
-      const peakByState = d3.rollups(
-        data,
-        v => d3.max(v, (d, i) => d.cases - (v[i - 1]?.cases || 0)),
-        d => d.state
-      ).sort((a, b) => d3.descending(a[1], b[1]));
-
-      const svg3 = d3.select("#barChart").attr("viewBox", [0, 0, width, height]);
-      const xBar = d3.scaleLinear().domain([0, d3.max(peakByState, d => d[1])]).nice().range([margin.left, width - margin.right]);
-      const yBar = d3.scaleBand().domain(peakByState.map(d => d[0])).range([margin.top, height - margin.bottom]).padding(0.1);
-
-      svg3.append("g").attr("transform", `translate(0,${margin.top})`).call(d3.axisTop(xBar));
-      svg3.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(yBar));
-
-      svg3.selectAll("rect")
-        .data(peakByState)
-        .enter().append("rect")
-        .attr("x", xBar(0))
-        .attr("y", d => yBar(d[0]))
-        .attr("width", d => xBar(d[1]) - xBar(0))
-        .attr("height", yBar.bandwidth())
-        .attr("fill", "darkorange")
-        .append("title")
-        .text(d => `${d[0]}: Peak new cases = ${d[1]}`);
-
-      const annotations3 = d3.annotation()
-        .type(d3.annotationLabel)
-        .annotations([
-          {
-            note: {
-              title: "New York's Peak",
-              label: "One of the highest spikes early in the pandemic",
-              wrap: 200
-            },
-            x: xBar(peakByState.find(d => d[0] === "New York")[1]),
-            y: yBar("New York") + yBar.bandwidth() / 2,
-            dx: 10,
-            dy: -40
-          }
-        ]);
-
-      svg3.append("g")
-        .attr("class", "annotation-group")
-        .call(annotations3);
-
-      // Scene 4 Dropdown
-      stateNames = Array.from(new Set(data.map(d => d.state))).sort();
-      const dropdown = d3.select("#dropdown");
-      dropdown.selectAll("option").data(stateNames).enter().append("option").text(d => d);
-      dropdown.on("change", function(e) { updateStateChart(e.target.value); });
-      updateStateChart("California");
-    });
-
-    function updateStateChart(state) {
-      const filtered = covidData.filter(d => d.state === state);
-      const nested = filtered.map(d => [new Date(d.date), d.cases]);
-
-      const svg = d3.select("#stateLineChart");
-      svg.selectAll("*").remove();
-
-      const width = 800, height = 500, margin = {top: 20, right: 30, bottom: 30, left: 50};
-      const x = d3.scaleTime().domain(d3.extent(nested, d => d[0])).range([margin.left, width - margin.right]);
-      const y = d3.scaleLinear().domain([0, d3.max(nested, d => d[1])]).nice().range([height - margin.bottom, margin.top]);
-
-      const line = d3.line().x(d => x(d[0])).y(d => y(d[1]));
-      svg.attr("viewBox", [0, 0, width, height]);
-
-      svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x));
-      svg.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y));
-
-      svg.append("path")
-        .datum(nested)
-        .attr("fill", "none")
-        .attr("stroke", "crimson")
-        .attr("stroke-width", 2)
-        .attr("d", line);
-
-      const annotations4 = d3.annotation()
-        .type(d3.annotationLabel)
-        .annotations([
-          {
-            note: {
-              title: `COVID Trends in ${state}`,
-              label: "Case counts over time",
-              wrap: 160
-            },
-            x: x(nested[nested.length - 1][0]),
-            y: y(nested[nested.length - 1][1]),
-            dx: -100,
-            dy: -50
-          }
-        ]);
-
-      svg.append("g")
-        .attr("class", "annotation-group")
-        .call(annotations4);
-    }
   </script>
+  <script src="scenes.js"></script>
 </body>
 </html>
