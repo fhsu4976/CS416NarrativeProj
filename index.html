@@ -90,85 +90,51 @@
       tooltip.style("display", "none");
     }
     
-    // Improved annotation offset computation
+    // Improved helper to compute safe annotation offsets to keep inside view
     function computeAnnotationOffsets(x, y, width, height, margin = 50) {
       const annotationWidth = 200;
-      const annotationHeight = 80;
+      const annotationHeight = 100;
       
       let dx = 80;
       let dy = -80;
       
-      // Check right boundary - if annotation would go outside, flip to left
-      if (x + dx + annotationWidth > width - margin) {
-        dx = -annotationWidth - 20;
-      }
-      
-      // Check left boundary - if annotation would go outside, move to right
-      if (x + dx < margin) {
+      // Horizontal positioning
+      if (x > width / 2) {
+        // Point is on right side, place annotation to the left
+        dx = -annotationWidth - 30;
+      } else {
+        // Point is on left side, place annotation to the right
         dx = 80;
       }
       
-      // Check top boundary - if annotation would go outside, flip to bottom
-      if (y + dy < margin) {
+      // Vertical positioning
+      if (y < height / 2) {
+        // Point is in upper half, place annotation below
         dy = 80;
+      } else {
+        // Point is in lower half, place annotation above
+        dy = -annotationHeight - 30;
       }
       
-      // Check bottom boundary - if annotation would go outside, flip to top
-      if (y + dy + annotationHeight > height - margin) {
-        dy = -annotationHeight - 20;
-      }
+      // Final boundary checks to ensure annotation stays within bounds
+      if (x + dx < margin) dx = margin - x + 10;
+      if (x + dx + annotationWidth > width - margin) dx = width - margin - annotationWidth - x - 10;
+      if (y + dy < margin) dy = margin - y + 10;
+      if (y + dy + annotationHeight > height - margin) dy = height - margin - annotationHeight - y - 10;
       
       return { dx, dy };
     }
     
-    // Generate sample COVID data since we don't have the CSV file
-    function generateSampleData() {
-      const states = ["California", "Texas", "Florida", "New York", "Pennsylvania", "Illinois", "Ohio", "Georgia", "North Carolina", "Michigan"];
-      const data = [];
-      const startDate = new Date("2020-01-21");
-      const endDate = new Date("2020-12-31");
-      
-      states.forEach((state, stateIndex) => {
-        let currentDate = new Date(startDate);
-        let cases = Math.random() * 100;
-        
-        while (currentDate <= endDate) {
-          // Add some realistic growth patterns
-          const dayOfYear = (currentDate - startDate) / (1000 * 60 * 60 * 24);
-          let growth = 1 + Math.random() * 0.1;
-          
-          // Summer surge (around day 150-200)
-          if (dayOfYear > 150 && dayOfYear < 200) {
-            growth *= 1.5;
-          }
-          
-          // Fall surge (around day 300+)
-          if (dayOfYear > 300) {
-            growth *= 1.3;
-          }
-          
-          cases = Math.max(0, cases * growth + (Math.random() - 0.5) * cases * 0.2);
-          
-          data.push({
-            Date: new Date(currentDate),
-            State: state,
-            FIPS: stateIndex + 1,
-            Cases: Math.round(cases),
-            Deaths: Math.round(cases * 0.02)
-          });
-          
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      });
-      
-      return data;
-    }
-    
-    // Use sample data instead of loading CSV
-    const data = generateSampleData();
-    
-    // Load US topology and process data
-    d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json").then((us) => {
+    Promise.all([
+      d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
+      d3.csv("covid_data.csv", d => ({
+        Date: new Date(d.date),
+        State: d.state.trim(),
+        FIPS: +d.fips,
+        Cases: +d.cases,
+        Deaths: +d.deaths
+      }))
+    ]).then(([us, data]) => {
       const fullWidth = 960;
       const fullHeight = 500;
     
@@ -271,11 +237,11 @@
         .attr("d", d3.line().x(d => x2(d.Date)).y(d => y2(d.Cases)));
     
       trendGroup.selectAll("circle")
-        .data(timeSeries.filter((d, i) => i % 10 === 0)) // Show fewer points to reduce clutter
+        .data(timeSeries)
         .join("circle")
         .attr("cx", d => x2(d.Date))
         .attr("cy", d => y2(d.Cases))
-        .attr("r", 3)
+        .attr("r", 4)
         .attr("fill", "steelblue")
         .attr("pointer-events", "all")
         .on("mouseover", (event, d) => {
@@ -289,8 +255,14 @@
         })
         .on("mouseout", hideTooltip);
     
-      // Find a good annotation point around July
-      const julyData = timeSeries.find(d => d.Date.getMonth() === 6);
+      // Find summer surge annotation point - look for July 2020 data
+      const julyDate = new Date("2020-07-01");
+      const julyData = timeSeries.find(d => 
+        d.Date.getFullYear() === 2020 && 
+        d.Date.getMonth() === 6 && 
+        d.Date.getDate() <= 15
+      );
+      
       if (julyData) {
         const annX2 = x2(julyData.Date);
         const annY2 = y2(julyData.Cases);
@@ -334,7 +306,7 @@
     
       const x3 = d3.scaleLinear()
         .domain([0, d3.max(peakByState, d => d.Peak)]).nice()
-        .range([0, width3]);
+        .range([0, width3 - 100]);
     
       const y3 = d3.scaleBand()
         .domain(peakByState.map(d => d.State))
@@ -366,18 +338,18 @@
         .attr("transform", `translate(0,${height3})`)
         .call(d3.axisBottom(x3).ticks(6));
     
-      // Annotation for the top state (better positioning)
+      // Annotation for highest peak - position it better to avoid overlap
       if (peakByState.length > 0) {
         const topState = peakByState[0];
-        const barX = x3(topState.Peak) * 0.6; // Position at 60% of bar length
-        const barY = y3(topState.State) + y3.bandwidth() / 2;
-        const {dx, dy} = computeAnnotationOffsets(barX, barY, width3, height3);
+        const baseX = x3(topState.Peak) * 0.5; // Position at middle of the longest bar
+        const baseY = y3(topState.State) + y3.bandwidth() / 2;
+        const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3);
     
         barGroup.append("g").call(
           d3.annotation().annotations([{
             ...annotationStyle,
-            x: barX,
-            y: barY,
+            x: baseX,
+            y: baseY,
             dx,
             dy,
             note: {
@@ -407,12 +379,10 @@
       const dropdown = d3.select("#dropdown");
       const stateList = Array.from(new Set(data.map(d => d.State))).sort();
     
-      dropdown.selectAll("option").remove(); // Clear existing options
       dropdown.selectAll("option")
         .data(stateList)
         .enter().append("option")
-        .text(d => d)
-        .attr("value", d => d);
+        .text(d => d);
     
       function drawStateChart(selectedState) {
         lineGroup.selectAll("*").remove();
@@ -442,11 +412,11 @@
           .attr("d", d3.line().x(d => x4(d.Date)).y(d => y4(d.Cases)));
     
         lineGroup.selectAll("circle")
-          .data(stateData.filter((d, i) => i % 7 === 0)) // Show fewer points
+          .data(stateData)
           .join("circle")
           .attr("cx", d => x4(d.Date))
           .attr("cy", d => y4(d.Cases))
-          .attr("r", 3)
+          .attr("r", 4)
           .attr("fill", "#ff9800")
           .attr("pointer-events", "all")
           .on("mouseover", (event, d) => {
@@ -458,19 +428,24 @@
           .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
           .on("mouseout", hideTooltip);
     
-        // Annotation for Fall surge (November)
-        const fallData = stateData.filter(d => d.Date.getMonth() === 10); // November
-        if (fallData.length > 0) {
-          const midFall = fallData[Math.floor(fallData.length / 2)];
-          const fallX = x4(midFall.Date);
-          const fallY = y4(midFall.Cases);
-          const {dx, dy} = computeAnnotationOffsets(fallX, fallY, width4, height4);
+        // Annotation for November fall surge
+        const novemberData = stateData.filter(d => 
+          d.Date.getFullYear() === 2020 && 
+          d.Date.getMonth() === 10 // November (0-indexed)
+        );
+        
+        if (novemberData.length > 0) {
+          // Find a good point in November to annotate
+          const midNov = novemberData[Math.floor(novemberData.length / 2)];
+          const novX = x4(midNov.Date);
+          const novY = y4(midNov.Cases);
+          const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4);
     
           lineGroup.append("g").call(
             d3.annotation().annotations([{
               ...annotationStyle,
-              x: fallX,
-              y: fallY,
+              x: novX,
+              y: novY,
               dx,
               dy,
               note: {
@@ -482,12 +457,7 @@
         }
       }
     
-      // Initialize with first state
-      if (stateList.length > 0) {
-        drawStateChart(stateList[0]);
-        dropdown.node().value = stateList[0];
-      }
-      
+      drawStateChart(stateList[0]);
       dropdown.on("change", function () {
         drawStateChart(this.value);
       });
