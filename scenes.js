@@ -1,4 +1,4 @@
-// Common annotation styling
+// Annotation style shared across scenes
 const annotationStyle = {
     note: {
       label: "",
@@ -11,7 +11,7 @@ const annotationStyle = {
     type: d3.annotationCalloutCircle
   };
   
-  // Load data and draw all scenes
+  // Load topoJSON + COVID CSV
   Promise.all([
     d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
     d3.csv("covid_data.csv", d => ({
@@ -22,10 +22,10 @@ const annotationStyle = {
       FIPS: +d.fips
     }))
   ]).then(([us, data]) => {
-    // -------------------- Scene 1: Map + First Case --------------------
+    // ---------------- Scene 1: US Map ----------------
     const svg1 = d3.select("#mapScene").attr("viewBox", [0, 0, 960, 500]);
-    const path = d3.geoPath();
     const usStates = topojson.feature(us, us.objects.states);
+    const path = d3.geoPath();
     const projection = d3.geoAlbersUsa().fitSize([960, 500], usStates);
   
     svg1.append("g")
@@ -43,9 +43,9 @@ const annotationStyle = {
       d.State === "Washington"
     );
   
-    const coords = projection([-122.3321, 47.6062]); // Seattle, WA
+    const coords = projection([-122.3321, 47.6062]); // Seattle
   
-    if (coords) {
+    if (firstCase && coords) {
       svg1.append("circle")
         .attr("cx", coords[0])
         .attr("cy", coords[1])
@@ -65,19 +65,19 @@ const annotationStyle = {
       );
     }
   
-    // -------------------- Scene 2: US Trend Line --------------------
+    // ---------------- Scene 2: National Trend ----------------
     const svg2 = d3.select("#usTrend").attr("viewBox", [0, 0, 960, 500]);
   
     const dailyCases = d3.rollup(
       data,
       v => d3.sum(v, d => d.Cases),
-      d => +d.Date // Use timestamp as key
+      d => +d.Date
     );
   
     const timeSeries = Array.from(dailyCases, ([ts, cases]) => ({
       Date: new Date(ts),
       Cases: cases
-    }));
+    })).filter(d => d.Date instanceof Date && !isNaN(d.Cases));
   
     const x2 = d3.scaleTime()
       .domain(d3.extent(timeSeries, d => d.Date))
@@ -87,13 +87,8 @@ const annotationStyle = {
       .domain([0, d3.max(timeSeries, d => d.Cases)]).nice()
       .range([460, 40]);
   
-    svg2.append("g")
-      .attr("transform", "translate(0,460)")
-      .call(d3.axisBottom(x2));
-  
-    svg2.append("g")
-      .attr("transform", "translate(40,0)")
-      .call(d3.axisLeft(y2));
+    svg2.append("g").attr("transform", "translate(0,460)").call(d3.axisBottom(x2));
+    svg2.append("g").attr("transform", "translate(40,0)").call(d3.axisLeft(y2));
   
     svg2.append("path")
       .datum(timeSeries)
@@ -101,24 +96,27 @@ const annotationStyle = {
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
       .attr("d", d3.line()
-        .defined(d => d.Date && !isNaN(d.Cases))
         .x(d => x2(d.Date))
         .y(d => y2(d.Cases))
       );
   
-    svg2.append("g").call(
-      d3.annotation().annotations([{
-        ...annotationStyle,
-        x: x2(new Date("2020-07-01")),
-        y: y2(60000),
-        note: {
-          title: "Summer Surge",
-          label: "July 2020 saw a dramatic increase in daily cases."
-        }
-      }])
-    );
+    const surgeDate = new Date("2020-07-01");
+    const surgeY = y2(60000);
+    if (!isNaN(surgeY)) {
+      svg2.append("g").call(
+        d3.annotation().annotations([{
+          ...annotationStyle,
+          x: x2(surgeDate),
+          y: surgeY,
+          note: {
+            title: "Summer Surge",
+            label: "July 2020 saw a dramatic increase in daily cases."
+          }
+        }])
+      );
+    }
   
-    // -------------------- Scene 3: State Peak Bar Chart --------------------
+    // ---------------- Scene 3: State Peak Bar Chart ----------------
     const svg3 = d3.select("#barChart").attr("viewBox", [0, 0, 960, 500]);
   
     const peakByState = Array.from(
@@ -128,7 +126,7 @@ const annotationStyle = {
         d => d.State
       ),
       ([State, Peak]) => ({ State, Peak })
-    );
+    ).filter(d => !isNaN(d.Peak));
   
     peakByState.sort((a, b) => b.Peak - a.Peak);
   
@@ -162,7 +160,7 @@ const annotationStyle = {
       .call(d3.axisBottom(x3).ticks(6));
   
     const texasY = y3("Texas");
-    if (texasY !== undefined) {
+    if (texasY !== undefined && !isNaN(texasY)) {
       svg3.append("g").call(
         d3.annotation().annotations([{
           ...annotationStyle,
@@ -176,7 +174,7 @@ const annotationStyle = {
       );
     }
   
-    // -------------------- Scene 4: State Dropdown Line Chart --------------------
+    // ---------------- Scene 4: Dropdown State Line Chart ----------------
     const svg4 = d3.select("#stateLineChart").attr("viewBox", [0, 0, 960, 500]);
     const dropdown = d3.select("#dropdown");
     const stateList = Array.from(new Set(data.map(d => d.State))).sort();
@@ -190,54 +188,50 @@ const annotationStyle = {
     function drawStateChart(selectedState) {
       svg4.selectAll("*").remove();
   
-      const stateData = data.filter(d => d.State === selectedState);
-      const timeData = stateData.filter(d => d.Date && !isNaN(d.Cases));
+      const stateData = data.filter(d => d.State === selectedState && !isNaN(d.Cases));
+      if (stateData.length === 0) return;
   
       const x4 = d3.scaleTime()
-        .domain(d3.extent(timeData, d => d.Date))
+        .domain(d3.extent(stateData, d => d.Date))
         .range([40, 920]);
   
       const y4 = d3.scaleLinear()
-        .domain([0, d3.max(timeData, d => d.Cases)]).nice()
+        .domain([0, d3.max(stateData, d => d.Cases)]).nice()
         .range([460, 40]);
   
-      svg4.append("g")
-        .attr("transform", "translate(0,460)")
-        .call(d3.axisBottom(x4));
-  
-      svg4.append("g")
-        .attr("transform", "translate(40,0)")
-        .call(d3.axisLeft(y4));
+      svg4.append("g").attr("transform", "translate(0,460)").call(d3.axisBottom(x4));
+      svg4.append("g").attr("transform", "translate(40,0)").call(d3.axisLeft(y4));
   
       svg4.append("path")
-        .datum(timeData)
+        .datum(stateData)
         .attr("fill", "none")
         .attr("stroke", "#ff9800")
         .attr("stroke-width", 2)
         .attr("d", d3.line()
-          .defined(d => d.Date && !isNaN(d.Cases))
           .x(d => x4(d.Date))
           .y(d => y4(d.Cases))
         );
   
-      const novPoint = timeData.find(d => d.Date.getMonth() === 10); // November
+      const novPoint = stateData.find(d => d.Date.getMonth() === 10); // November
       if (novPoint) {
-        svg4.append("g").call(
-          d3.annotation().annotations([{
-            ...annotationStyle,
-            x: x4(novPoint.Date),
-            y: y4(novPoint.Cases),
-            note: {
-              title: "Fall Surge",
-              label: `${selectedState} saw rising cases in fall 2020.`
-            }
-          }])
-        );
+        const yVal = y4(novPoint.Cases);
+        if (!isNaN(yVal)) {
+          svg4.append("g").call(
+            d3.annotation().annotations([{
+              ...annotationStyle,
+              x: x4(novPoint.Date),
+              y: yVal,
+              note: {
+                title: "Fall Surge",
+                label: `${selectedState} saw rising cases in fall 2020.`
+              }
+            }])
+          );
+        }
       }
     }
   
     drawStateChart(stateList[0]);
-  
     dropdown.on("change", function () {
       drawStateChart(this.value);
     });
