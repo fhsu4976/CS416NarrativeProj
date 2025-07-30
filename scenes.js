@@ -1,4 +1,4 @@
-// Annotation style used across all scenes
+// Shared annotation style
 const annotationStyle = {
     note: { label: "", title: "", wrap: 200, align: "middle" },
     connector: { end: "dot" },
@@ -6,7 +6,7 @@ const annotationStyle = {
     type: d3.annotationCalloutCircle
   };
   
-  // Tooltip div
+  // Tooltip logic
   const tooltip = d3.select("body").append("div")
     .attr("class", "tooltip")
     .style("position", "absolute")
@@ -18,213 +18,188 @@ const annotationStyle = {
     .style("font-size", "12px")
     .style("pointer-events", "none");
   
-  function showTooltip(content, position) {
+  function showTooltip(content, [x, y]) {
     tooltip.html(content)
-      .style("top", `${position[1] - 40}px`)
-      .style("left", `${position[0] + 10}px`)
+      .style("left", `${x + 10}px`)
+      .style("top", `${y - 30}px`)
       .style("visibility", "visible");
   }
-  function moveTooltip(position) {
-    tooltip.style("top", `${position[1] - 40}px`)
-           .style("left", `${position[0] + 10}px`);
+  
+  function moveTooltip([x, y]) {
+    tooltip.style("left", `${x + 10}px`).style("top", `${y - 30}px`);
   }
+  
   function hideTooltip() {
     tooltip.style("visibility", "hidden");
   }
   
-  // Helper to compute safe annotation dx/dy
-  function computeAnnotationOffsets(x, y, width, height) {
-    let dx = 0, dy = -30;
-    if (y < 40) dy = 30;
-    if (x > width - 100) dx = -80;
-    else if (x < 100) dx = 80;
+  // Offset annotations dynamically
+  function computeOffset(x, y, w, h) {
+    let dx = 40, dy = -40;
+    if (x < 100) dx = 80;
+    if (x > w - 100) dx = -80;
+    if (y < 60) dy = 60;
+    if (y > h - 60) dy = -60;
     return { dx, dy };
   }
   
-  // Load all data
   Promise.all([
     d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
     d3.csv("covid_data.csv", d3.autoType)
   ]).then(([us, data]) => {
+    const mapSvg = d3.select("#mapScene").attr("viewBox", "0 0 960 500");
+    const mapGroup = mapSvg.append("g");
   
-    // --- Scene 1: US map + first case annotation ---
-    const svg1 = d3.select("#mapScene").attr("viewBox", "0 0 960 500").attr("preserveAspectRatio", "xMidYMid meet");
     const path = d3.geoPath();
-    const usStates = topojson.feature(us, us.objects.states);
-    const projection = d3.geoAlbersUsa().fitSize([960, 500], usStates);
-    const mapGroup = svg1.append("g");
+    const projection = d3.geoAlbersUsa().fitSize([960, 500], topojson.feature(us, us.objects.states));
   
     mapGroup.selectAll("path")
-      .data(usStates.features)
+      .data(topojson.feature(us, us.objects.states).features)
       .join("path")
-      .attr("d", path.projection(projection))
       .attr("fill", "#e0e0e0")
-      .attr("stroke", "#fff");
+      .attr("stroke", "#999")
+      .attr("d", d => path.projection(projection)(d));
   
-    const firstCase = data.find(d =>
-      d.Date instanceof Date &&
-      d.Date.getFullYear() === 2020 &&
-      d.Date.getMonth() === 0 &&
-      d.Date.getDate() === 21 &&
-      d.State === "Washington"
-    );
-    const coords = projection([-122.3321, 47.6062]); // Seattle
-  
-    if (coords) {
-      mapGroup.append("circle")
-        .attr("cx", coords[0])
-        .attr("cy", coords[1])
-        .attr("r", 6)
-        .attr("fill", "red");
-  
-      const mapAnnotation = d3.annotation().annotations([{
-        ...annotationStyle,
-        x: coords[0],
-        y: coords[1],
-        dx: 80,
-        dy: -40,
-        note: {
-          title: "First Case",
-          label: "Jan 21, 2020 – Washington reports first COVID case."
-        }
-      }]);
-      mapGroup.append("g").call(mapAnnotation);
+    const seattle = projection([-122.3321, 47.6062]);
+    if (seattle) {
+      mapGroup.append("circle").attr("cx", seattle[0]).attr("cy", seattle[1]).attr("r", 6).attr("fill", "red");
+      mapGroup.append("g")
+        .style("overflow", "visible")
+        .call(d3.annotation().annotations([{
+          ...annotationStyle,
+          x: seattle[0],
+          y: seattle[1],
+          dx: 80,
+          dy: -40,
+          note: {
+            title: "First Case",
+            label: "Jan 21, 2020 — Washington reports the first U.S. case"
+          }
+        }]));
     }
   
-    // --- Scene 2: US daily trend line ---
-    const svg2 = d3.select("#usTrend").attr("viewBox", "0 0 960 500").attr("preserveAspectRatio", "xMidYMid meet");
-    const trendGroup = svg2.append("g").attr("transform", "translate(50, 20)");
+    // --- Scene 2 ---
+    const svg2 = d3.select("#usTrend").attr("viewBox", "0 0 960 500");
+    const group2 = svg2.append("g").attr("transform", "translate(50,20)");
   
-    const dailyCases = d3.rollup(data, v => d3.sum(v, d => d.Cases), d => d.Date);
-    const timeSeries = Array.from(dailyCases, ([Date, Cases]) => ({ Date, Cases }));
+    const timeline = Array.from(d3.rollup(data, v => d3.sum(v, d => d.Cases), d => d.Date))
+      .map(([Date, Cases]) => ({ Date, Cases }));
   
-    const width2 = 860, height2 = 460;
-    const x2 = d3.scaleTime().domain(d3.extent(timeSeries, d => d.Date)).range([0, width2]);
-    const y2 = d3.scaleLinear().domain([0, d3.max(timeSeries, d => d.Cases)]).nice().range([height2, 0]);
+    const x2 = d3.scaleTime().domain(d3.extent(timeline, d => d.Date)).range([0, 860]);
+    const y2 = d3.scaleLinear().domain([0, d3.max(timeline, d => d.Cases)]).nice().range([460, 0]);
   
-    trendGroup.append("g").attr("transform", `translate(0,${height2})`).call(d3.axisBottom(x2));
-    trendGroup.append("g").call(d3.axisLeft(y2));
+    group2.append("g").attr("transform", "translate(0,460)").call(d3.axisBottom(x2));
+    group2.append("g").call(d3.axisLeft(y2));
   
-    trendGroup.append("path")
-      .datum(timeSeries)
+    group2.append("path")
+      .datum(timeline)
       .attr("fill", "none")
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
       .attr("d", d3.line().x(d => x2(d.Date)).y(d => y2(d.Cases)));
   
-    trendGroup.selectAll("circle")
-      .data(timeSeries)
+    group2.selectAll("circle")
+      .data(timeline)
       .join("circle")
       .attr("cx", d => x2(d.Date))
       .attr("cy", d => y2(d.Cases))
       .attr("r", 3)
       .attr("fill", "steelblue")
-      .on("mouseover", (event, d) => {
-        showTooltip(`<strong>${d.Date.toLocaleDateString()}</strong><br/>Cases: ${d.Cases.toLocaleString()}`, [event.pageX, event.pageY]);
-      })
-      .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
+      .on("mouseover", (e, d) => showTooltip(`Date: ${d.Date.toLocaleDateString()}<br>Cases: ${d.Cases}`, [e.pageX, e.pageY]))
+      .on("mousemove", (e) => moveTooltip([e.pageX, e.pageY]))
       .on("mouseout", hideTooltip);
   
-    const summerX = x2(new Date("2020-07-01")), summerY = y2(60000);
-    trendGroup.append("g").call(d3.annotation().annotations([{
-      ...annotationStyle,
-      x: summerX,
-      y: summerY,
-      dx: -100,
-      dy: -40,
-      note: {
-        title: "Summer Surge",
-        label: "July 2020 saw a dramatic increase in daily cases."
-      }
-    }]));
+    const surge = timeline.find(d => d.Date.getFullYear() === 2020 && d.Date.getMonth() === 6);
+    if (surge) {
+      const x = x2(surge.Date), y = y2(surge.Cases);
+      const { dx, dy } = computeOffset(x, y, 860, 460);
+      group2.append("g").call(d3.annotation().annotations([{
+        ...annotationStyle,
+        x, y, dx, dy,
+        note: {
+          title: "Summer Surge",
+          label: "July 2020 spike in daily cases."
+        }
+      }]));
+    }
   
-    // --- Scene 3: State peaks bar chart ---
-    const svg3 = d3.select("#barChart").attr("viewBox", "0 0 960 500").attr("preserveAspectRatio", "xMidYMid meet");
-    const barGroup = svg3.append("g").attr("transform", "translate(150, 20)");
+    // --- Scene 3 ---
+    const svg3 = d3.select("#barChart").attr("viewBox", "0 0 960 500");
+    const group3 = svg3.append("g").attr("transform", "translate(150,20)");
   
-    const peakByState = Array.from(
-      d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
-      ([State, Peak]) => ({ State, Peak })
-    );
+    const peaks = Array.from(d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State), ([State, Peak]) => ({ State, Peak }));
+    const x3 = d3.scaleLinear().domain([0, d3.max(peaks, d => d.Peak)]).range([0, 700]);
+    const y3 = d3.scaleBand().domain(peaks.map(d => d.State)).range([0, 460]).padding(0.1);
   
-    const width3 = 700, height3 = 460;
-    const x3 = d3.scaleLinear().domain([0, d3.max(peakByState, d => d.Peak)]).range([0, width3]);
-    const y3 = d3.scaleBand().domain(peakByState.map(d => d.State)).range([0, height3]).padding(0.1);
-  
-    barGroup.selectAll("rect")
-      .data(peakByState)
+    group3.selectAll("rect")
+      .data(peaks)
       .join("rect")
-      .attr("x", 0)
       .attr("y", d => y3(d.State))
-      .attr("width", d => x3(d.Peak))
+      .attr("x", 0)
       .attr("height", y3.bandwidth())
+      .attr("width", d => x3(d.Peak))
       .attr("fill", "#4caf50")
-      .on("mouseover", (event, d) => {
-        showTooltip(`<strong>${d.State}</strong><br/>Peak daily cases: ${d.Peak.toLocaleString()}`, [event.pageX, event.pageY]);
-      })
-      .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
+      .on("mouseover", (e, d) => showTooltip(`${d.State}<br>Peak: ${d.Peak}`, [e.pageX, e.pageY]))
+      .on("mousemove", e => moveTooltip([e.pageX, e.pageY]))
       .on("mouseout", hideTooltip);
   
-    barGroup.append("g").call(d3.axisLeft(y3).tickSize(0)).selectAll("text").attr("font-size", "10px");
-    barGroup.append("g").attr("transform", `translate(0,${height3})`).call(d3.axisBottom(x3).ticks(6));
+    group3.append("g").call(d3.axisLeft(y3).tickSize(0));
+    group3.append("g").attr("transform", "translate(0,460)").call(d3.axisBottom(x3));
   
-    const txY = y3("Texas") + y3.bandwidth() / 2;
-    barGroup.append("g").call(d3.annotation().annotations([{
-      ...annotationStyle,
-      x: x3(peakByState.find(d => d.State === "Texas").Peak),
-      y: txY,
-      dx: -100,
-      dy: -40,
-      note: {
-        title: "Highest Peak",
-        label: "Texas recorded the highest daily case count."
-      }
-    }]));
+    const tx = peaks.find(d => d.State === "Texas");
+    if (tx) {
+      const x = x3(tx.Peak), y = y3(tx.State) + y3.bandwidth() / 2;
+      const { dx, dy } = computeOffset(x, y, 700, 460);
+      group3.append("g").call(d3.annotation().annotations([{
+        ...annotationStyle,
+        x, y, dx, dy,
+        note: {
+          title: "Texas Peak",
+          label: "Texas had the highest peak."
+        }
+      }]));
+    }
   
-    // --- Scene 4: Dropdown Line Chart ---
-    const svg4 = d3.select("#stateLineChart").attr("viewBox", "0 0 960 500").attr("preserveAspectRatio", "xMidYMid meet");
-    const lineGroup = svg4.append("g").attr("transform", "translate(50, 20)");
+    // --- Scene 4 ---
+    const svg4 = d3.select("#stateLineChart").attr("viewBox", "0 0 960 500");
+    const group4 = svg4.append("g").attr("transform", "translate(50,20)");
   
     const dropdown = d3.select("#dropdown");
-    const stateList = Array.from(new Set(data.map(d => d.State))).sort();
-    dropdown.selectAll("option").data(stateList).enter().append("option").text(d => d);
+    const states = Array.from(new Set(data.map(d => d.State))).sort();
+    dropdown.selectAll("option").data(states).enter().append("option").text(d => d);
   
-    const width4 = 860, height4 = 460;
+    function renderState(state) {
+      group4.selectAll("*").remove();
+      const sdata = data.filter(d => d.State === state && d.Date instanceof Date);
+      const x = d3.scaleTime().domain(d3.extent(sdata, d => d.Date)).range([0, 860]);
+      const y = d3.scaleLinear().domain([0, d3.max(sdata, d => d.Cases)]).range([460, 0]).nice();
   
-    function drawStateChart(state) {
-      lineGroup.selectAll("*").remove();
-      const stateData = data.filter(d => d.State === state && d.Date instanceof Date);
-      const x = d3.scaleTime().domain(d3.extent(stateData, d => d.Date)).range([0, width4]);
-      const y = d3.scaleLinear().domain([0, d3.max(stateData, d => d.Cases)]).nice().range([height4, 0]);
+      group4.append("g").attr("transform", "translate(0,460)").call(d3.axisBottom(x));
+      group4.append("g").call(d3.axisLeft(y));
   
-      lineGroup.append("g").attr("transform", `translate(0,${height4})`).call(d3.axisBottom(x));
-      lineGroup.append("g").call(d3.axisLeft(y));
-  
-      lineGroup.append("path")
-        .datum(stateData)
+      group4.append("path")
+        .datum(sdata)
         .attr("fill", "none")
         .attr("stroke", "#ff9800")
         .attr("stroke-width", 2)
         .attr("d", d3.line().x(d => x(d.Date)).y(d => y(d.Cases)));
   
-      lineGroup.selectAll("circle")
-        .data(stateData)
+      group4.selectAll("circle")
+        .data(sdata)
         .join("circle")
         .attr("cx", d => x(d.Date))
         .attr("cy", d => y(d.Cases))
         .attr("r", 3)
         .attr("fill", "#ff9800")
-        .on("mouseover", (event, d) => {
-          showTooltip(`<strong>${d.Date.toLocaleDateString()}</strong><br/>Cases: ${d.Cases.toLocaleString()}`, [event.pageX, event.pageY]);
-        })
-        .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
+        .on("mouseover", (e, d) => showTooltip(`${d.Date.toLocaleDateString()}<br>${d.Cases}`, [e.pageX, e.pageY]))
+        .on("mousemove", e => moveTooltip([e.pageX, e.pageY]))
         .on("mouseout", hideTooltip);
   
-      const fall = stateData.find(d => d.Date.getMonth() === 10);
+      const fall = sdata.find(d => d.Date.getMonth() === 10);
       if (fall) {
         const fx = x(fall.Date), fy = y(fall.Cases);
-        const {dx, dy} = computeAnnotationOffsets(fx, fy, width4, height4);
-        lineGroup.append("g").call(d3.annotation().annotations([{
+        const { dx, dy } = computeOffset(fx, fy, 860, 460);
+        group4.append("g").call(d3.annotation().annotations([{
           ...annotationStyle,
           x: fx,
           y: fy,
@@ -232,15 +207,15 @@ const annotationStyle = {
           dy,
           note: {
             title: "Fall Surge",
-            label: `${state} saw rising cases in fall 2020.`
+            label: `${state} cases rose in Fall 2020.`
           }
         }]));
       }
     }
   
-    drawStateChart(stateList[0]);
+    renderState(states[0]);
     dropdown.on("change", function () {
-      drawStateChart(this.value);
+      renderState(this.value);
     });
   });
   
