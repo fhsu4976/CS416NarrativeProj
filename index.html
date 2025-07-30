@@ -69,13 +69,11 @@
         title: "",
         wrap: 150,
         align: "left",
-        padding: 10,
-        lineType: "horizontal"  // Restore horizontal line to separate title and label
+        padding: 8
       },
       type: d3.annotationCalloutCircle,
       connector: {
-        end: "dot",
-        type: "line"
+        end: "dot"
       },
       color: "#333"
     };
@@ -366,7 +364,8 @@
               title: "Summer Surge",
               label: "July 2020 saw dramatic increase in daily cases",
               wrap: 120,
-              padding: 10
+              padding: 8,
+              lineType: "horizontal"
             }
           }])
         );
@@ -453,7 +452,7 @@
               title: "Highest Peak",
               label: `${topState.State} had the highest daily cases`,
               wrap: 110,
-              padding: 10
+              padding: 8
             }
           }])
         );
@@ -554,7 +553,8 @@
                 title: "Fall Surge",
                 label: `${selectedState} saw rising cases in fall 2020`,
                 wrap: 110,
-                padding: 10
+                padding: 8,
+                lineType: "horizontal"
               }
             }])
           );
