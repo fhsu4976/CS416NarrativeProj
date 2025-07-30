@@ -51,17 +51,7 @@
   <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
   <script>
     const scenes = [1, 2, 3, 4];
-    function nextScene(n) {
-      scenes.forEach(i => document.getElementById(`scene${i}`).classList.remove('active'));
-      document.getElementById(`scene${n}`).classList.add('active');
-
-      if (n === 2) renderScene2Annotations();
-      else if (n === 3) renderScene3Annotations();
-      else if (n === 4) {
-        const selected = document.getElementById('dropdown').value;
-        drawStateChart(selected);
-      }
-    }
+    
 
     const annotationStyle = {
       note: {
@@ -208,7 +198,17 @@
       // All rendering functions go here, using 'data'
       // You already have them in working form — just insert them from your existing implementation
       // For brevity, not repeating 1000+ lines — use your confirmed working rendering code here
+      function nextScene(n) {
+      scenes.forEach(i => document.getElementById(`scene${i}`).classList.remove('active'));
+      document.getElementById(`scene${n}`).classList.add('active');
 
+      if (n === 2) renderScene2Annotations();
+      else if (n === 3) renderScene3Annotations();
+      else if (n === 4) {
+        const selected = document.getElementById('dropdown').value;
+        drawStateChart(selected);
+      }
+    }
       const fullWidth = 960;
       const fullHeight = 500;
     
