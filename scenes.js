@@ -69,7 +69,7 @@ const annotationStyle = {
       d => d.Date
     );
   
-    const timeSeries = Array.from(dailyCases, ([date, Cases]) => ({ Date: date, Cases }));
+    const timeSeries = Array.from(dailyCases, ([d, cases]) => ({ Date: d, Cases: cases }));
   
     const x2 = d3.scaleTime()
       .domain(d3.extent(timeSeries, d => d.Date))
@@ -206,7 +206,7 @@ const annotationStyle = {
           .x(d => x4(d.Date))
           .y(d => y4(d.Cases)));
   
-      const novData = timeData.find(d => d.Date.getMonth() === 10); // November = 10
+      const novData = timeData.find(d => d.Date instanceof Date && d.Date.getMonth() === 10); // November = 10
       if (novData) {
         const annotations4 = d3.annotation()
           .annotations([{
