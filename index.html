@@ -70,13 +70,12 @@
         wrap: 150,
         align: "left",
         padding: 10,
-        lineType: "none"  // Remove horizontal line
+        lineType: "horizontal"  // Restore horizontal line to separate title and label
       },
       type: d3.annotationCalloutCircle,
       connector: {
         end: "dot",
-        type: "line",
-        lineType: "vertical"
+        type: "line"
       },
       color: "#333"
     };
