@@ -407,7 +407,7 @@
         .on("mouseout", hideTooltip);
     
       barGroup.append("g")
-        .call(d3.axisLeft(y3).tickSize(0))
+        .call(d3.axisLeft(y3).tickSize(3))
         .selectAll("text")
         .attr("font-size", "15px")
         .attr('dy', '0.75em');
