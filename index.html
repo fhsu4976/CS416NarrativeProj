@@ -68,7 +68,8 @@
         wrap: 160,
         align: "middle",
         padding: 10,
-        lineType: "horizontal"
+        lineType: "horizontal",
+        lineHeight: 18,
       },
       type: d3.annotationCalloutCircle,
       connector: {
@@ -362,14 +363,6 @@
             }
           }])
         );
-        
-        // Fix text positioning manually
-        setTimeout(() => {
-          annotationGroup.selectAll(".annotation-note-title")
-            .attr("dy", "0.8em");
-          annotationGroup.selectAll(".annotation-note-label")
-            .attr("dy", "2.2em");
-        }, 100);
       }
       
       // ===== SCENE 3 =====
@@ -457,13 +450,6 @@
           }])
         );
         
-        // Fix text positioning manually
-        setTimeout(() => {
-          annotationGroup3.selectAll(".annotation-note-title")
-            .attr("dy", "0.8em");
-          annotationGroup3.selectAll(".annotation-note-label")
-            .attr("dy", "2.2em");
-        }, 100);
       }
       
       // ===== SCENE 4 =====
@@ -564,13 +550,6 @@
             }])
           );
           
-          // Fix text positioning manually
-          setTimeout(() => {
-            annotationGroup4.selectAll(".annotation-note-title")
-              .attr("dy", "0.8em");
-            annotationGroup4.selectAll(".annotation-note-label")
-              .attr("dy", "2.2em");
-          }, 100);
         }
       }
     
