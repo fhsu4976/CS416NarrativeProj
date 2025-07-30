@@ -51,15 +51,18 @@
   <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
   <script>
     const scenes = [1, 2, 3, 4];
-    
+    function nextScene(n) {
+      scenes.forEach(i => document.getElementById(`scene${i}`).classList.remove('active'));
+      document.getElementById(`scene${n}`).classList.add('active');
+    }
 
     const annotationStyle = {
       note: {
         label: "",
         title: "",
-        wrap: 140,
+        wrap: 160,
         align: "middle",
-        padding: 10,
+        padding: 8,
         lineType: "horizontal"
       },
       type: d3.annotationCalloutCircle,
@@ -68,7 +71,8 @@
       },
       color: "#333"
     };
-
+    
+    // Tooltip setup
     const tooltip = d3.select("body").append("div")
       .attr("id", "tooltip")
       .style("position", "absolute")
@@ -80,7 +84,7 @@
       .style("font-size", "13px")
       .style("display", "none")
       .style("box-shadow", "0 2px 5px rgba(0,0,0,0.2)");
-
+    
     function showTooltip(html, [x, y]) {
       tooltip.html(html)
         .style("left", `${x + 10}px`)
@@ -93,56 +97,86 @@
     function hideTooltip() {
       tooltip.style("display", "none");
     }
-
+    
+    // Global array to track annotation positions across all scenes
     let existingAnnotations = [];
-
-    function rectanglesOverlap(rect1, rect2, buffer = 20) {
-      return !(rect1.right + buffer < rect2.left || 
-               rect2.right + buffer < rect1.left || 
-               rect1.bottom + buffer < rect2.top || 
-               rect2.bottom + buffer < rect1.top);
+    
+    // Helper to check if two rectangles overlap
+    function rectanglesOverlap(rect1, rect2) {
+      return !(rect1.right < rect2.left || 
+               rect2.right < rect1.left || 
+               rect1.bottom < rect2.top || 
+               rect2.bottom < rect1.top);
     }
-
-    function computeAnnotationOffsets(x, y, width, height, sceneId, textLength = 50) {
-      const baseWidth = 160;
-      const baseHeight = 80;
-      const annotationWidth = Math.max(baseWidth, Math.min(250, textLength * 2.5));
-      const annotationHeight = Math.max(baseHeight, Math.min(140, textLength * 0.8));
-      const margin = 80;
-
+    
+    // Improved helper to compute safe annotation offsets avoiding overlaps
+    function computeAnnotationOffsets(x, y, width, height, sceneId, margin = 60) {
+      const annotationWidth = 220;
+      const annotationHeight = 120;
+      
+      // Clear existing annotations for new scene
       if (sceneId) {
         existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== sceneId);
       }
-
+      
       const possiblePositions = [
-        { dx: 120, dy: -120 }, { dx: -annotationWidth - 60, dy: -120 },
-        { dx: 120, dy: 60 },   { dx: -annotationWidth - 60, dy: 60 },
-        { dx: 160, dy: -80 },  { dx: -annotationWidth - 100, dy: -80 },
-        { dx: 80, dy: -160 },  { dx: -220, dy: -160 },
-        { dx: 80, dy: 100 },   { dx: -220, dy: 100 },
-        { dx: 200, dy: -50 },  { dx: -300, dy: -50 },
-        { dx: 50, dy: -200 },  { dx: 50, dy: 150 }
+        { dx: 100, dy: -100 },      // top-right (preferred)
+        { dx: -annotationWidth - 40, dy: -100 }, // top-left
+        { dx: 100, dy: 40 },        // bottom-right
+        { dx: -annotationWidth - 40, dy: 40 },   // bottom-left
+        { dx: 140, dy: -60 },       // right-center
+        { dx: -annotationWidth - 80, dy: -60 },  // left-center
+        { dx: 60, dy: -140 },       // top-center-right
+        { dx: -180, dy: -140 },     // top-center-left
+        { dx: 60, dy: 80 },         // bottom-center-right
+        { dx: -180, dy: 80 }        // bottom-center-left
       ];
-
+      
       for (let pos of possiblePositions) {
         let { dx, dy } = pos;
-        if (x + dx < margin || x + dx + annotationWidth > width - margin || y + dy < margin || y + dy + annotationHeight > height - margin) continue;
+        
+        // Ensure annotation stays within bounds with more generous margins
+        if (x + dx < margin) continue;
+        if (x + dx + annotationWidth > width - margin) continue;
+        if (y + dy < margin) continue;
+        if (y + dy + annotationHeight > height - margin) continue;
+        
+        // Create rectangle for this potential annotation
         const newRect = {
-          left: x + dx, top: y + dy,
+          left: x + dx,
+          top: y + dy,
           right: x + dx + annotationWidth,
           bottom: y + dy + annotationHeight,
           sceneId: sceneId
         };
-        let overlaps = existingAnnotations.some(existing => rectanglesOverlap(newRect, existing, 30));
+        
+        // Check if it overlaps with any existing annotations
+        let overlaps = false;
+        for (let existing of existingAnnotations) {
+          if (rectanglesOverlap(newRect, existing)) {
+            overlaps = true;
+            break;
+          }
+        }
+        
         if (!overlaps) {
+          // Store this annotation position
           existingAnnotations.push(newRect);
           return { dx, dy };
         }
       }
-
-      const fallback = { dx: 200, dy: -200 };
-      if (x + fallback.dx + annotationWidth > width - margin) fallback.dx = -annotationWidth - 120;
-      if (y + fallback.dy < margin) fallback.dy = 120;
+      
+      // Fallback - use a far offset position to minimize overlap
+      const fallback = { dx: 150, dy: -150 };
+      
+      // Final boundary adjustment for fallback
+      if (x + fallback.dx + annotationWidth > width - margin) {
+        fallback.dx = -annotationWidth - 60;
+      }
+      if (y + fallback.dy < margin) {
+        fallback.dy = 60;
+      }
+      
       existingAnnotations.push({
         left: x + fallback.dx,
         top: y + fallback.dy,
@@ -150,66 +184,20 @@
         bottom: y + fallback.dy + annotationHeight,
         sceneId: sceneId
       });
+      
       return fallback;
     }
-
-    function addAnnotation({
-      container,
-      x, y,
-      dx, dy,
-      title, label,
-      width, height,
-      sceneId,
-      overrideClass = "annotation"
-    }) {
-      const annotationText = `${title} ${label}`;
-      const offsets = computeAnnotationOffsets(x, y, width, height, sceneId, annotationText.length);
-
-      container.append("g")
-        .attr("class", overrideClass)
-        .call(
-          d3.annotation().annotations([{
-            ...annotationStyle,
-            x, y,
-            dx: dx ?? offsets.dx,
-            dy: dy ?? offsets.dy,
-            note: {
-              ...annotationStyle.note,
-              title,
-              label,
-              wrap: 140,
-              padding: 10
-            }
-          }])
-        );
-    }
-
-    // Load data and render all scenes
+    
     Promise.all([
+      d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
       d3.csv("covid_data.csv", d => ({
-        Date: new Date(d.Date),
-        State: d.State,
-        FIPS: +d.FIPS,
-        Cases: +d.Cases,
-        Deaths: +d.Deaths
-      })),
-      d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json")
-    ]).then(([data, us]) => {
-      // All rendering functions go here, using 'data'
-      // You already have them in working form — just insert them from your existing implementation
-      // For brevity, not repeating 1000+ lines — use your confirmed working rendering code here
-      function nextScene(n) {
-      scenes.forEach(i => document.getElementById(`scene${i}`).classList.remove('active'));
-      document.getElementById(`scene${n}`).classList.add('active');
-
-      if (n === 2) renderScene2Annotations();
-      else if (n === 3) renderScene3Annotations();
-      else if (n === 4) {
-        const selected = document.getElementById('dropdown').value;
-        drawStateChart(selected);
-      }
-    }
-    window.nextScene = nextScene;
+        Date: new Date(d.date),
+        State: d.state.trim(),
+        FIPS: +d.fips,
+        Cases: +d.cases,
+        Deaths: +d.deaths
+      }))
+    ]).then(([us, data]) => {
       const fullWidth = 960;
       const fullHeight = 500;
     
@@ -247,8 +235,7 @@
           .attr("stroke", "black")
           .attr("stroke-width", 1);
     
-        const annotationText = "First Confirmed Case Jan 21, 2020 — Washington state's first COVID-19 case.";
-        const {dx, dy} = computeAnnotationOffsets(x, y, fullWidth, fullHeight, 'scene1', annotationText.length);
+        const {dx, dy} = computeAnnotationOffsets(x, y, fullWidth, fullHeight, 'scene1');
     
         svg1.append("g").call(
           d3.annotation().annotations([{
@@ -259,8 +246,8 @@
               ...annotationStyle.note,
               title: "First Confirmed Case",
               label: "Jan 21, 2020 — Washington state's first COVID-19 case.",
-              wrap: 140,
-              padding: 10
+              wrap: 160,
+              padding: 8
             }
           }])
         );
@@ -335,60 +322,35 @@
         .on("mouseout", hideTooltip);
     
       // Find summer surge annotation point - look for July 2020 data
-      // const julyDate = new Date("2020-07-01");
-      // const julyData = timeSeries.find(d => 
-      //   d.Date.getFullYear() === 2020 && 
-      //   d.Date.getMonth() === 6 && 
-      //   d.Date.getDate() <= 15
-      // );
+      const julyDate = new Date("2020-07-01");
+      const julyData = timeSeries.find(d => 
+        d.Date.getFullYear() === 2020 && 
+        d.Date.getMonth() === 6 && 
+        d.Date.getDate() <= 15
+      );
       
-      // if (julyData) {
-      //   const annX2 = x2(julyData.Date);
-      //   const annY2 = y2(julyData.Cases);
-      //   const annotationText2 = "Summer Surge July 2020 saw a dramatic increase in daily cases.";
-      //   const {dx: dx2, dy: dy2} = computeAnnotationOffsets(annX2, annY2, width2, height2, 'scene2', annotationText2.length);
+      if (julyData) {
+        const annX2 = x2(julyData.Date);
+        const annY2 = y2(julyData.Cases);
+        const {dx: dx2, dy: dy2} = computeAnnotationOffsets(annX2, annY2, width2, height2, 'scene2');
     
-      //   trendGroup.append("g").call(
-      //     d3.annotation().annotations([{
-      //       ...annotationStyle,
-      //       x: annX2,
-      //       y: annY2,
-      //       dx: dx2,
-      //       dy: dy2,
-      //       note: {
-      //         ...annotationStyle.note,
-      //         title: "Summer Surge",
-      //         label: "July 2020 saw a dramatic increase in daily cases.",
-      //         wrap: 140,
-      //         padding: 10
-      //       }
-      //     }])
-      //   );
-      // }
-      function renderScene2Annotations() {
-        d3.select("#usTrend g.annotation").remove();
-
-        const julyData = timeSeries.find(d =>
-          d.Date.getFullYear() === 2020 &&
-          d.Date.getMonth() === 6 &&
-          d.Date.getDate() <= 15
+        trendGroup.append("g").call(
+          d3.annotation().annotations([{
+            ...annotationStyle,
+            x: annX2,
+            y: annY2,
+            dx: dx2,
+            dy: dy2,
+            note: {
+              ...annotationStyle.note,
+              title: "Summer Surge",
+              label: "July 2020 saw a dramatic increase in daily cases.",
+              wrap: 160,
+              padding: 8
+            }
+          }])
         );
-
-        if (julyData) {
-          const x = x2(julyData.Date);
-          const y = y2(julyData.Cases);
-          addAnnotation({
-            container: trendGroup,
-            x, y,
-            title: "Summer Surge",
-            label: "July 2020 saw a dramatic increase in daily cases.",
-            width: width2,
-            height: height2,
-            sceneId: "scene2"
-          });
-        }
       }
-
     
       // ===== SCENE 3 =====
       const margin3 = {top: 60, right: 60, bottom: 50, left: 100};
@@ -446,50 +408,29 @@
         .call(d3.axisBottom(x3).ticks(6));
     
       // Annotation for highest peak - position it better to avoid overlap
-      // if (peakByState.length > 0) {
-      //   const topState = peakByState[0];
-      //   const baseX = x3(topState.Peak) * 0.7; // Position further along the bar
-      //   const baseY = y3(topState.State) + y3.bandwidth() / 2;
-      //   const annotationText3 = `Highest Peak ${topState.State} recorded the highest daily case count.`;
-      //   const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3, 'scene3', annotationText3.length);
+      if (peakByState.length > 0) {
+        const topState = peakByState[0];
+        const baseX = x3(topState.Peak) * 0.5; // Position at middle of the longest bar
+        const baseY = y3(topState.State) + y3.bandwidth() / 2;
+        const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3, 'scene3');
     
-      //   barGroup.append("g").call(
-      //     d3.annotation().annotations([{
-      //       ...annotationStyle,
-      //       x: baseX,
-      //       y: baseY,
-      //       dx,
-      //       dy,
-      //       note: {
-      //         ...annotationStyle.note,
-      //         title: "Highest Peak",
-      //         label: `${topState.State} recorded the highest daily case count.`,
-      //         wrap: 140,
-      //         padding: 10
-      //       }
-      //     }])
-      //   );
-      // }
-      function renderScene3Annotations() {
-        d3.select("#barChart g.annotation").remove();
-
-        if (peakByState.length > 0) {
-          const topState = peakByState[0];
-          const x = x3(topState.Peak) * 0.7;
-          const y = y3(topState.State) + y3.bandwidth() / 2;
-
-          addAnnotation({
-            container: barGroup,
-            x, y,
-            title: "Highest Peak",
-            label: `${topState.State} recorded the highest daily case count.`,
-            width: width3,
-            height: height3,
-            sceneId: "scene3"
-          });
-        }
+        barGroup.append("g").call(
+          d3.annotation().annotations([{
+            ...annotationStyle,
+            x: baseX,
+            y: baseY,
+            dx,
+            dy,
+            note: {
+              ...annotationStyle.note,
+              title: "Highest Peak",
+              label: `${topState.State} recorded the highest daily case count.`,
+              wrap: 160,
+              padding: 8
+            }
+          }])
+        );
       }
-
     
       // ===== SCENE 4 =====
       const margin4 = {top: 60, right: 60, bottom: 50, left: 70};
@@ -516,14 +457,8 @@
         .text(d => d);
     
       function drawStateChart(selectedState) {
-        // lineGroup.selectAll("*").remove();
-        
-        // // Clear annotations for this scene when switching states
-        // existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== 'scene4');
+        lineGroup.selectAll("*").remove();
     
-        lineGroup.selectAll("g.annotation").remove();
-        existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== 'scene4');
-
         const stateData = data.filter(d => d.State === selectedState && !isNaN(d.Cases));
     
         const x4 = d3.scaleTime()
@@ -566,57 +501,35 @@
           .on("mouseout", hideTooltip);
     
         // Annotation for November fall surge
-        // const novemberData = stateData.filter(d => 
-        //   d.Date.getFullYear() === 2020 && 
-        //   d.Date.getMonth() === 10 // November (0-indexed)
-        // );
+        const novemberData = stateData.filter(d => 
+          d.Date.getFullYear() === 2020 && 
+          d.Date.getMonth() === 10 // November (0-indexed)
+        );
         
-        // if (novemberData.length > 0) {
-        //   // Find a good point in November to annotate
-        //   const midNov = novemberData[Math.floor(novemberData.length / 2)];
-        //   const novX = x4(midNov.Date);
-        //   const novY = y4(midNov.Cases);
-        //   const annotationText4 = `Fall Surge ${selectedState} saw rising cases in fall 2020.`;
-        //   const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4, 'scene4', annotationText4.length);
+        if (novemberData.length > 0) {
+          // Find a good point in November to annotate
+          const midNov = novemberData[Math.floor(novemberData.length / 2)];
+          const novX = x4(midNov.Date);
+          const novY = y4(midNov.Cases);
+          const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4, 'scene4');
     
-        //   lineGroup.append("g").call(
-        //     d3.annotation().annotations([{
-        //       ...annotationStyle,
-        //       x: novX,
-        //       y: novY,
-        //       dx,
-        //       dy,
-        //       note: {
-        //         ...annotationStyle.note,
-        //         title: "Fall Surge",
-        //         label: `${selectedState} saw rising cases in fall 2020.`,
-        //         wrap: 140,
-        //         padding: 10
-        //       }
-        //     }])
-        //   );
-        // }
-        // Add annotation for November surge
-      const novemberData = stateData.filter(d =>
-        d.Date.getFullYear() === 2020 &&
-        d.Date.getMonth() === 10
-      );
-
-      if (novemberData.length > 0) {
-        const midNov = novemberData[Math.floor(novemberData.length / 2)];
-        const x = x4(midNov.Date);
-        const y = y4(midNov.Cases);
-
-        addAnnotation({
-          container: lineGroup,
-          x, y,
-          title: "Fall Surge",
-          label: `${selectedState} saw rising cases in fall 2020.`,
-          width: width4,
-          height: height4,
-          sceneId: "scene4"
-        });
-      }
+          lineGroup.append("g").call(
+            d3.annotation().annotations([{
+              ...annotationStyle,
+              x: novX,
+              y: novY,
+              dx,
+              dy,
+              note: {
+                ...annotationStyle.note,
+                title: "Fall Surge",
+                label: `${selectedState} saw rising cases in fall 2020.`,
+                wrap: 160,
+                padding: 8
+              }
+            }])
+          );
+        }
       }
     
       drawStateChart(stateList[0]);
