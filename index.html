@@ -67,14 +67,16 @@
       note: {
         label: "",
         title: "",
-        wrap: 160,
-        align: "middle",
-        padding: 8,
-        lineType: "horizontal"
+        wrap: 150,
+        align: "left",
+        padding: 10,
+        lineType: "none"  // Remove horizontal line
       },
       type: d3.annotationCalloutCircle,
       connector: {
-        end: "dot"
+        end: "dot",
+        type: "line",
+        lineType: "vertical"
       },
       color: "#333"
     };
@@ -117,31 +119,31 @@
     }
     
     // Improved helper to compute safe annotation offsets avoiding overlaps
-    function computeAnnotationOffsets(x, y, width, height, sceneId, priority = 0, margin = 50) {
-      const annotationWidth = 200;
-      const annotationHeight = 100;
+    function computeAnnotationOffsets(x, y, width, height, sceneId, priority = 0, margin = 40) {
+      const annotationWidth = 180;
+      const annotationHeight = 80;
       
       // Clear existing annotations for new scene
       if (sceneId && priority === 0) {
         existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== sceneId);
       }
       
-      // More spread out positions with larger gaps
+      // Strategic positions that avoid crossing paths
       const possiblePositions = [
-        { dx: 120, dy: -120 },      // top-right
-        { dx: -annotationWidth - 60, dy: -120 }, // top-left
-        { dx: 120, dy: 60 },        // bottom-right
-        { dx: -annotationWidth - 60, dy: 60 },   // bottom-left
-        { dx: 180, dy: -60 },       // far right-center
-        { dx: -annotationWidth - 120, dy: -60 }, // far left-center
-        { dx: 80, dy: -180 },       // far top-right
-        { dx: -240, dy: -180 },     // far top-left
-        { dx: 80, dy: 120 },        // far bottom-right
-        { dx: -240, dy: 120 },      // far bottom-left
-        { dx: 220, dy: -100 },      // very far right
-        { dx: -annotationWidth - 160, dy: -100 }, // very far left
-        { dx: 0, dy: -200 },        // directly above
-        { dx: -100, dy: 140 }       // below left
+        { dx: 140, dy: -100 },      // top-right
+        { dx: -annotationWidth - 80, dy: -100 }, // top-left
+        { dx: 140, dy: 80 },        // bottom-right
+        { dx: -annotationWidth - 80, dy: 80 },   // bottom-left
+        { dx: 200, dy: -50 },       // far right
+        { dx: -annotationWidth - 140, dy: -50 }, // far left
+        { dx: 100, dy: -160 },      // high right
+        { dx: -280, dy: -160 },     // high left
+        { dx: 100, dy: 140 },       // low right
+        { dx: -280, dy: 140 },      // low left
+        { dx: 260, dy: -80 },       // very far right
+        { dx: -annotationWidth - 200, dy: -80 }, // very far left
+        { dx: 60, dy: -220 },       // very high
+        { dx: -220, dy: 180 }       // very low
       ];
       
       for (let pos of possiblePositions) {
@@ -153,47 +155,60 @@
         if (y + dy < margin) continue;
         if (y + dy + annotationHeight > height - margin) continue;
         
-        // Create rectangle for this potential annotation
+        // Create rectangle for this potential annotation with generous buffer
+        const buffer = 30;
         const newRect = {
-          left: x + dx,
-          top: y + dy,
-          right: x + dx + annotationWidth,
-          bottom: y + dy + annotationHeight,
+          left: x + dx - buffer,
+          top: y + dy - buffer,
+          right: x + dx + annotationWidth + buffer,
+          bottom: y + dy + annotationHeight + buffer,
           sceneId: sceneId
         };
         
-        // Check if it overlaps with any existing annotations with buffer
+        // Check if it overlaps with any existing annotations
         let overlaps = false;
-        const buffer = 20; // Additional spacing buffer
         for (let existing of existingAnnotations) {
-          const bufferedExisting = {
-            left: existing.left - buffer,
-            top: existing.top - buffer,
-            right: existing.right + buffer,
-            bottom: existing.bottom + buffer
-          };
-          if (rectanglesOverlap(newRect, bufferedExisting)) {
+          if (rectanglesOverlap(newRect, existing)) {
             overlaps = true;
             break;
           }
         }
         
         if (!overlaps) {
-          // Store this annotation position
-          existingAnnotations.push(newRect);
+          // Store this annotation position (without buffer for actual storage)
+          existingAnnotations.push({
+            left: x + dx,
+            top: y + dy,
+            right: x + dx + annotationWidth,
+            bottom: y + dy + annotationHeight,
+            sceneId: sceneId
+          });
           return { dx, dy };
         }
       }
       
-      // Fallback - use a very far offset position
-      const fallback = { dx: 250 + (priority * 50), dy: -200 + (priority * 40) };
+      // Fallback - use extreme positions based on priority
+      const fallbackOptions = [
+        { dx: 300, dy: -120 },
+        { dx: -annotationWidth - 240, dy: -120 },
+        { dx: 300, dy: 160 },
+        { dx: -annotationWidth - 240, dy: 160 }
+      ];
       
-      // Final boundary adjustment for fallback
+      const fallback = fallbackOptions[priority % fallbackOptions.length];
+      
+      // Final boundary adjustment
       if (x + fallback.dx + annotationWidth > width - margin) {
-        fallback.dx = -annotationWidth - 100 - (priority * 50);
+        fallback.dx = -annotationWidth - 160;
+      }
+      if (x + fallback.dx < margin) {
+        fallback.dx = 160;
       }
       if (y + fallback.dy < margin) {
-        fallback.dy = 100 + (priority * 40);
+        fallback.dy = 120;
+      }
+      if (y + fallback.dy + annotationHeight > height - margin) {
+        fallback.dy = -140;
       }
       
       existingAnnotations.push({
@@ -312,8 +327,8 @@
                 ...annotationStyle.note,
                 title: location.title,
                 label: location.label,
-                wrap: 160,
-                padding: 6
+                wrap: 140,
+                padding: 8
               }
             }])
           );
