@@ -6,10 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Scene 1: Where It Started</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 40px; }
-    svg { width: 100%; height: 500px; overflow: visible; }
-    button { margin-top: 20px; padding: 10px 20px; }
+    body { font-family: sans-serif; margin: 0; padding: 0; }
+    h2, h3 { margin-left: 40px; }
+    svg { width: 100%; height: 500px; overflow: visible; margin-top: 60px; }  /* <-- updated */
+    button { margin: 20px 40px; padding: 10px 20px; }
   </style>
+  
 </head>
 <body>
   <h2>Scene 1: Where It Started</h2>
@@ -57,7 +59,7 @@
         .attr("d", path);
 
       const locations = [
-        { name: "Seattle", coords: [-122.3321, 47.6062], type: "first", title: "Patient Zero", label: "Jan 21, 2020 — First US case from Wuhan traveler", dx: -180, dy: -60 },
+        { name: "Seattle", coords: [-122.3321, 47.6062], type: "first", title: "Patient Zero", label: "Jan 21, 2020 — First US case from Wuhan traveler", dx: -180, dy: -100 },
         { name: "NYC", coords: [-74.0060, 40.7128], type: "hotspot", title: "NYC Epicenter", label: "March 2020 — Dense population made NYC the early US hotspot", dx: 60, dy: -80 },
         { name: "SFO", coords: [-122.3753, 37.6213], type: "airport", title: "SFO Gateway", label: "Asia-Pacific hub accelerated West Coast spread", dx: -160, dy: 40 },
         { name: "LAX", coords: [-118.4085, 33.9425], type: "airport", title: "LAX Hub", label: "Busiest West Coast airport connected global hotspots", dx: 60, dy: 60 }
