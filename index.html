@@ -271,7 +271,7 @@
           }
         }
       });
-    
+
       // ===== SCENE 2 =====
       const margin2 = {top: 60, right: 60, bottom: 50, left: 70};
       const width2 = fullWidth - margin2.left - margin2.right;
@@ -351,7 +351,9 @@
       if (julyData) {
         const annX2 = x2(julyData.Date);
         const annY2 = y2(julyData.Cases);
-        const {dx: dx2, dy: dy2} = computeAnnotationOffsets(annX2, annY2, width2, height2, 'scene2');
+        // Hardcoded position: top-right to avoid line
+        const dx2 = 80;
+        const dy2 = -60;
     
         trendGroup.append("g").call(
           d3.annotation().annotations([{
@@ -363,99 +365,100 @@
             note: {
               ...annotationStyle.note,
               title: "Summer Surge",
-              label: "July 2020 saw a dramatic increase in daily cases.",
-              wrap: 160,
-              padding: 8,
-              lineType: "horizontal"
+              label: "July 2020 saw a dramatic increase in daily cases",
+              wrap: 140,
+              padding: 8
             }
           }])
         );
       }
 
-    // ===== SCENE 3 =====
-    const margin3 = { top: 60, right: 60, bottom: 60, left: 140 };
-    const fullWidth3 = 1200;
-    const fullHeight3 = 1000; // Enough height for 50 bars with spacing
-    const width3 = fullWidth3 - margin3.left - margin3.right;
-    const height3 = fullHeight3 - margin3.top - margin3.bottom;
+      // ===== SCENE 3 =====
+      const margin3 = { top: 60, right: 60, bottom: 60, left: 140 };
+      const fullWidth3 = 1200;
+      const fullHeight3 = 1000; // Enough height for 50 bars with spacing
+      const width3 = fullWidth3 - margin3.left - margin3.right;
+      const height3 = fullHeight3 - margin3.top - margin3.bottom;
 
-    const svg3 = d3.select("#barChart")
-      .attr("width", fullWidth3)
-      .attr("height", fullHeight3)
-      .attr("viewBox", `0 0 ${fullWidth3} ${fullHeight3}`)
-      .style("overflow", "visible");
+      const svg3 = d3.select("#barChart")
+        .attr("width", fullWidth3)
+        .attr("height", fullHeight3)
+        .attr("viewBox", `0 0 ${fullWidth3} ${fullHeight3}`)
+        .style("overflow", "visible");
 
-    svg3.selectAll("*").remove();
+      svg3.selectAll("*").remove();
 
-    const barGroup = svg3.append("g")
-      .attr("transform", `translate(${margin3.left},${margin3.top})`);
+      const barGroup = svg3.append("g")
+        .attr("transform", `translate(${margin3.left},${margin3.top})`);
 
-    const peakByState = Array.from(
-      d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
-      ([State, Peak]) => ({ State, Peak })
-    )
-      .filter(d => !isNaN(d.Peak))
-      .sort((a, b) => b.Peak - a.Peak);
+      const peakByState = Array.from(
+        d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
+        ([State, Peak]) => ({ State, Peak })
+      )
+        .filter(d => !isNaN(d.Peak))
+        .sort((a, b) => b.Peak - a.Peak);
 
-    const x3 = d3.scaleLinear()
-      .domain([0, d3.max(peakByState, d => d.Peak)]).nice()
-      .range([0, width3]);
+      const x3 = d3.scaleLinear()
+        .domain([0, d3.max(peakByState, d => d.Peak)]).nice()
+        .range([0, width3]);
 
-    const y3 = d3.scaleBand()
-      .domain(peakByState.map(d => d.State))
-      .range([0, height3])
-      .padding(0.25); // More padding between bars
+      const y3 = d3.scaleBand()
+        .domain(peakByState.map(d => d.State))
+        .range([0, height3])
+        .padding(0.25); // More padding between bars
 
-    barGroup.append("g")
-      .selectAll("rect")
-      .data(peakByState)
-      .join("rect")
-      .attr("x", 0)
-      .attr("y", d => y3(d.State))
-      .attr("width", d => x3(d.Peak))
-      .attr("height", y3.bandwidth())
-      .attr("fill", "#4caf50")
-      .attr("pointer-events", "all")
-      .on("mouseover", (event, d) => {
-        showTooltip(`<strong>${d.State}</strong><br/>Peak Cases: ${d.Peak.toLocaleString()}`, [event.pageX, event.pageY]);
-      })
-      .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
-      .on("mouseout", hideTooltip);
+      barGroup.append("g")
+        .selectAll("rect")
+        .data(peakByState)
+        .join("rect")
+        .attr("x", 0)
+        .attr("y", d => y3(d.State))
+        .attr("width", d => x3(d.Peak))
+        .attr("height", y3.bandwidth())
+        .attr("fill", "#4caf50")
+        .attr("pointer-events", "all")
+        .on("mouseover", (event, d) => {
+          showTooltip(`<strong>${d.State}</strong><br/>Peak Cases: ${d.Peak.toLocaleString()}`, [event.pageX, event.pageY]);
+        })
+        .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
+        .on("mouseout", hideTooltip);
 
-    barGroup.append("g")
-      .call(d3.axisLeft(y3).tickSize(0))
-      .selectAll("text")
-      .attr("font-size", "12px") // Slightly smaller for better spacing
-      .attr("dy", "0.35em");
+      barGroup.append("g")
+        .call(d3.axisLeft(y3).tickSize(0))
+        .selectAll("text")
+        .attr("font-size", "12px") // Slightly smaller for better spacing
+        .attr("dy", "0.35em");
 
-    barGroup.append("g")
-      .attr("transform", `translate(0,${height3})`)
-      .call(d3.axisBottom(x3).ticks(8));
+      barGroup.append("g")
+        .attr("transform", `translate(0,${height3})`)
+        .call(d3.axisBottom(x3).ticks(8));
 
-    // Annotation for top state
-    if (peakByState.length > 0) {
-      const topState = peakByState[0];
-      const baseX = x3(topState.Peak) * 0.5;
-      const baseY = y3(topState.State) + y3.bandwidth() / 2;
-      const { dx, dy } = computeAnnotationOffsets(baseX, baseY, width3, height3, 'scene3');
+      // Annotation for top state - hardcoded position
+      if (peakByState.length > 0) {
+        const topState = peakByState[0];
+        const baseX = x3(topState.Peak) * 0.5;
+        const baseY = y3(topState.State) + y3.bandwidth() / 2;
+        // Hardcoded position: right side to avoid bar
+        const dx = 120;
+        const dy = -40;
 
-      barGroup.append("g").call(
-        d3.annotation().annotations([{
-          ...annotationStyle,
-          x: baseX,
-          y: baseY,
-          dx,
-          dy,
-          note: {
-            ...annotationStyle.note,
-            title: "Highest Peak",
-            label: `${topState.State} recorded the highest daily case count.`,
-            wrap: 160,
-            padding: 8
-          }
-        }])
-      );
-    }
+        barGroup.append("g").call(
+          d3.annotation().annotations([{
+            ...annotationStyle,
+            x: baseX,
+            y: baseY,
+            dx,
+            dy,
+            note: {
+              ...annotationStyle.note,
+              title: "Highest Peak",
+              label: `${topState.State} recorded the highest daily case count`,
+              wrap: 130,
+              padding: 8
+            }
+          }])
+        );
+      }
 
       // ===== SCENE 4 =====
       const margin4 = {top: 60, right: 60, bottom: 50, left: 70};
@@ -536,7 +539,9 @@
           const midNov = novemberData[Math.floor(novemberData.length / 2)];
           const novX = x4(midNov.Date);
           const novY = y4(midNov.Cases);
-          const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4, 'scene4');
+          // Hardcoded position: top-left to avoid line
+          const dx = -150;
+          const dy = -50;
     
           lineGroup.append("g").call(
             d3.annotation().annotations([{
@@ -548,10 +553,9 @@
               note: {
                 ...annotationStyle.note,
                 title: "Fall Surge",
-                label: `${selectedState} saw rising cases in fall 2020.`,
-                wrap: 160,
-                padding: 8,
-                lineType: "horizontal"
+                label: `${selectedState} saw rising cases in fall 2020`,
+                wrap: 130,
+                padding: 8
               }
             }])
           );
@@ -562,10 +566,9 @@
       dropdown.on("change", function () {
         drawStateChart(this.value);
       });
-
-      d3.selectAll(".annotation-note-label").select("tspan")
-        .attr("dy", "3em")
-        .attr("x", 0);
+      
+    }).catch(error => {
+      console.error("Error loading data:", error);
     });
   </script>
 </body>
