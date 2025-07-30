@@ -54,7 +54,15 @@
     function nextScene(n) {
       scenes.forEach(i => document.getElementById(`scene${i}`).classList.remove('active'));
       document.getElementById(`scene${n}`).classList.add('active');
+
+      if (n === 2) renderScene2Annotations();
+      else if (n === 3) renderScene3Annotations();
+      else if (n === 4) {
+        const selected = document.getElementById('dropdown').value;
+        drawStateChart(selected);
+      }
     }
+
 
     const annotationStyle = {
       note: {
@@ -196,7 +204,39 @@
       });
       
       return fallback;
+    } 
+
+    function addAnnotation({
+      container,
+      x, y,
+      dx, dy,
+      title, label,
+      width, height,
+      sceneId,
+      overrideClass = "annotation"
+    }) {
+      const annotationText = `${title} ${label}`;
+      const offsets = computeAnnotationOffsets(x, y, width, height, sceneId, annotationText.length);
+
+      container.append("g")
+        .attr("class", overrideClass)
+        .call(
+          d3.annotation().annotations([{
+            ...annotationStyle,
+            x, y,
+            dx: dx ?? offsets.dx,
+            dy: dy ?? offsets.dy,
+            note: {
+              ...annotationStyle.note,
+              title,
+              label,
+              wrap: 140,
+              padding: 10
+            }
+          }])
+        );
     }
+
     
     // Create sample data for demonstration
     const sampleData = [
@@ -343,36 +383,60 @@
         .on("mouseout", hideTooltip);
     
       // Find summer surge annotation point - look for July 2020 data
-      const julyDate = new Date("2020-07-01");
-      const julyData = timeSeries.find(d => 
-        d.Date.getFullYear() === 2020 && 
-        d.Date.getMonth() === 6 && 
-        d.Date.getDate() <= 15
-      );
+      // const julyDate = new Date("2020-07-01");
+      // const julyData = timeSeries.find(d => 
+      //   d.Date.getFullYear() === 2020 && 
+      //   d.Date.getMonth() === 6 && 
+      //   d.Date.getDate() <= 15
+      // );
       
-      if (julyData) {
-        const annX2 = x2(julyData.Date);
-        const annY2 = y2(julyData.Cases);
-        const annotationText2 = "Summer Surge July 2020 saw a dramatic increase in daily cases.";
-        const {dx: dx2, dy: dy2} = computeAnnotationOffsets(annX2, annY2, width2, height2, 'scene2', annotationText2.length);
+      // if (julyData) {
+      //   const annX2 = x2(julyData.Date);
+      //   const annY2 = y2(julyData.Cases);
+      //   const annotationText2 = "Summer Surge July 2020 saw a dramatic increase in daily cases.";
+      //   const {dx: dx2, dy: dy2} = computeAnnotationOffsets(annX2, annY2, width2, height2, 'scene2', annotationText2.length);
     
-        trendGroup.append("g").call(
-          d3.annotation().annotations([{
-            ...annotationStyle,
-            x: annX2,
-            y: annY2,
-            dx: dx2,
-            dy: dy2,
-            note: {
-              ...annotationStyle.note,
-              title: "Summer Surge",
-              label: "July 2020 saw a dramatic increase in daily cases.",
-              wrap: 140,
-              padding: 10
-            }
-          }])
+      //   trendGroup.append("g").call(
+      //     d3.annotation().annotations([{
+      //       ...annotationStyle,
+      //       x: annX2,
+      //       y: annY2,
+      //       dx: dx2,
+      //       dy: dy2,
+      //       note: {
+      //         ...annotationStyle.note,
+      //         title: "Summer Surge",
+      //         label: "July 2020 saw a dramatic increase in daily cases.",
+      //         wrap: 140,
+      //         padding: 10
+      //       }
+      //     }])
+      //   );
+      // }
+      function renderScene2Annotations() {
+        d3.select("#usTrend g.annotation").remove();
+
+        const julyData = timeSeries.find(d =>
+          d.Date.getFullYear() === 2020 &&
+          d.Date.getMonth() === 6 &&
+          d.Date.getDate() <= 15
         );
+
+        if (julyData) {
+          const x = x2(julyData.Date);
+          const y = y2(julyData.Cases);
+          addAnnotation({
+            container: trendGroup,
+            x, y,
+            title: "Summer Surge",
+            label: "July 2020 saw a dramatic increase in daily cases.",
+            width: width2,
+            height: height2,
+            sceneId: "scene2"
+          });
+        }
       }
+
     
       // ===== SCENE 3 =====
       const margin3 = {top: 60, right: 60, bottom: 50, left: 100};
@@ -430,30 +494,50 @@
         .call(d3.axisBottom(x3).ticks(6));
     
       // Annotation for highest peak - position it better to avoid overlap
-      if (peakByState.length > 0) {
-        const topState = peakByState[0];
-        const baseX = x3(topState.Peak) * 0.7; // Position further along the bar
-        const baseY = y3(topState.State) + y3.bandwidth() / 2;
-        const annotationText3 = `Highest Peak ${topState.State} recorded the highest daily case count.`;
-        const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3, 'scene3', annotationText3.length);
+      // if (peakByState.length > 0) {
+      //   const topState = peakByState[0];
+      //   const baseX = x3(topState.Peak) * 0.7; // Position further along the bar
+      //   const baseY = y3(topState.State) + y3.bandwidth() / 2;
+      //   const annotationText3 = `Highest Peak ${topState.State} recorded the highest daily case count.`;
+      //   const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3, 'scene3', annotationText3.length);
     
-        barGroup.append("g").call(
-          d3.annotation().annotations([{
-            ...annotationStyle,
-            x: baseX,
-            y: baseY,
-            dx,
-            dy,
-            note: {
-              ...annotationStyle.note,
-              title: "Highest Peak",
-              label: `${topState.State} recorded the highest daily case count.`,
-              wrap: 140,
-              padding: 10
-            }
-          }])
-        );
+      //   barGroup.append("g").call(
+      //     d3.annotation().annotations([{
+      //       ...annotationStyle,
+      //       x: baseX,
+      //       y: baseY,
+      //       dx,
+      //       dy,
+      //       note: {
+      //         ...annotationStyle.note,
+      //         title: "Highest Peak",
+      //         label: `${topState.State} recorded the highest daily case count.`,
+      //         wrap: 140,
+      //         padding: 10
+      //       }
+      //     }])
+      //   );
+      // }
+      function renderScene3Annotations() {
+        d3.select("#barChart g.annotation").remove();
+
+        if (peakByState.length > 0) {
+          const topState = peakByState[0];
+          const x = x3(topState.Peak) * 0.7;
+          const y = y3(topState.State) + y3.bandwidth() / 2;
+
+          addAnnotation({
+            container: barGroup,
+            x, y,
+            title: "Highest Peak",
+            label: `${topState.State} recorded the highest daily case count.`,
+            width: width3,
+            height: height3,
+            sceneId: "scene3"
+          });
+        }
       }
+
     
       // ===== SCENE 4 =====
       const margin4 = {top: 60, right: 60, bottom: 50, left: 70};
@@ -480,11 +564,14 @@
         .text(d => d);
     
       function drawStateChart(selectedState) {
-        lineGroup.selectAll("*").remove();
+        // lineGroup.selectAll("*").remove();
         
-        // Clear annotations for this scene when switching states
-        existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== 'scene4');
+        // // Clear annotations for this scene when switching states
+        // existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== 'scene4');
     
+        lineGroup.selectAll("g.annotation").remove();
+        existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== 'scene4');
+
         const stateData = data.filter(d => d.State === selectedState && !isNaN(d.Cases));
     
         const x4 = d3.scaleTime()
@@ -527,36 +614,57 @@
           .on("mouseout", hideTooltip);
     
         // Annotation for November fall surge
-        const novemberData = stateData.filter(d => 
-          d.Date.getFullYear() === 2020 && 
-          d.Date.getMonth() === 10 // November (0-indexed)
-        );
+        // const novemberData = stateData.filter(d => 
+        //   d.Date.getFullYear() === 2020 && 
+        //   d.Date.getMonth() === 10 // November (0-indexed)
+        // );
         
-        if (novemberData.length > 0) {
-          // Find a good point in November to annotate
-          const midNov = novemberData[Math.floor(novemberData.length / 2)];
-          const novX = x4(midNov.Date);
-          const novY = y4(midNov.Cases);
-          const annotationText4 = `Fall Surge ${selectedState} saw rising cases in fall 2020.`;
-          const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4, 'scene4', annotationText4.length);
+        // if (novemberData.length > 0) {
+        //   // Find a good point in November to annotate
+        //   const midNov = novemberData[Math.floor(novemberData.length / 2)];
+        //   const novX = x4(midNov.Date);
+        //   const novY = y4(midNov.Cases);
+        //   const annotationText4 = `Fall Surge ${selectedState} saw rising cases in fall 2020.`;
+        //   const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4, 'scene4', annotationText4.length);
     
-          lineGroup.append("g").call(
-            d3.annotation().annotations([{
-              ...annotationStyle,
-              x: novX,
-              y: novY,
-              dx,
-              dy,
-              note: {
-                ...annotationStyle.note,
-                title: "Fall Surge",
-                label: `${selectedState} saw rising cases in fall 2020.`,
-                wrap: 140,
-                padding: 10
-              }
-            }])
-          );
-        }
+        //   lineGroup.append("g").call(
+        //     d3.annotation().annotations([{
+        //       ...annotationStyle,
+        //       x: novX,
+        //       y: novY,
+        //       dx,
+        //       dy,
+        //       note: {
+        //         ...annotationStyle.note,
+        //         title: "Fall Surge",
+        //         label: `${selectedState} saw rising cases in fall 2020.`,
+        //         wrap: 140,
+        //         padding: 10
+        //       }
+        //     }])
+        //   );
+        // }
+        // Add annotation for November surge
+      const novemberData = stateData.filter(d =>
+        d.Date.getFullYear() === 2020 &&
+        d.Date.getMonth() === 10
+      );
+
+      if (novemberData.length > 0) {
+        const midNov = novemberData[Math.floor(novemberData.length / 2)];
+        const x = x4(midNov.Date);
+        const y = y4(midNov.Cases);
+
+        addAnnotation({
+          container: lineGroup,
+          x, y,
+          title: "Fall Surge",
+          label: `${selectedState} saw rising cases in fall 2020.`,
+          width: width4,
+          height: height4,
+          sceneId: "scene4"
+        });
+      }
       }
     
       drawStateChart(stateList[0]);
