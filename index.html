@@ -361,24 +361,16 @@
       }
     
       // ===== SCENE 3 =====
-      const margin3 = { top: 60, right: 60, bottom: 50, left: 100 };
-      const rowHeight = 25; // spacing between each state bar
-
-      const peakByState = Array.from(
-        d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
-        ([State, Peak]) => ({ State, Peak })
-      )
-        .filter(d => !isNaN(d.Peak))
-        .sort((a, b) => b.Peak - a.Peak);
-
-      const height3 = peakByState.length * rowHeight;
-      const fullHeight3 = height3 + margin3.top + margin3.bottom;
-      const width3 = fullWidth - margin3.left - margin3.right;
+      const margin3 = { top: 60, right: 60, bottom: 50, left: 120 };
+      const fullWidth3 = 1200;
+      const fullHeight3 = 600;
+      const width3 = fullWidth3 - margin3.left - margin3.right;
+      const height3 = fullHeight3 - margin3.top - margin3.bottom;
 
       const svg3 = d3.select("#barChart")
-        .attr("width", fullWidth)
+        .attr("width", fullWidth3)
         .attr("height", fullHeight3)
-        .attr("viewBox", `0 0 ${fullWidth} ${fullHeight3}`)
+        .attr("viewBox", `0 0 ${fullWidth3} ${fullHeight3}`)
         .style("overflow", "visible");
 
       svg3.selectAll("*").remove();
@@ -386,9 +378,17 @@
       const barGroup = svg3.append("g")
         .attr("transform", `translate(${margin3.left},${margin3.top})`);
 
+      const peakByState = Array.from(
+        d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
+        ([State, Peak]) => ({ State, Peak })
+      )
+        .filter(d => !isNaN(d.Peak))
+        .sort((a, b) => b.Peak - a.Peak)
+        .slice(0, 25); // Limit to top 25 states
+
       const x3 = d3.scaleLinear()
         .domain([0, d3.max(peakByState, d => d.Peak)]).nice()
-        .range([0, width3 - 100]);
+        .range([0, width3]);
 
       const y3 = d3.scaleBand()
         .domain(peakByState.map(d => d.State))
@@ -414,16 +414,14 @@
       barGroup.append("g")
         .call(d3.axisLeft(y3).tickSize(0))
         .selectAll("text")
-        .attr("font-size", "13px")
-        .attr("dy", "0.35em")
-        .style("text-anchor", "start")
-        .attr("x", -90); // shift text left to avoid overlap with bars
+        .attr("font-size", "14px")
+        .attr("dy", "0.35em");
 
       barGroup.append("g")
         .attr("transform", `translate(0,${height3})`)
-        .call(d3.axisBottom(x3).ticks(6));
+        .call(d3.axisBottom(x3).ticks(8));
 
-      // Annotation for highest peak
+      // Annotation for top state
       if (peakByState.length > 0) {
         const topState = peakByState[0];
         const baseX = x3(topState.Peak) * 0.5;
@@ -447,7 +445,7 @@
           }])
         );
       }
-    
+
       // ===== SCENE 4 =====
       const margin4 = {top: 60, right: 60, bottom: 50, left: 70};
       const width4 = fullWidth - margin4.left - margin4.right;
