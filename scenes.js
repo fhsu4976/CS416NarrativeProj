@@ -8,6 +8,7 @@ const annotationStyle = {
     type: d3.annotationCalloutCircle
   };
   
+  // Tooltip setup
   const tooltip = d3.select("body").append("div")
     .attr("id", "tooltip")
     .style("position", "absolute")
@@ -26,8 +27,21 @@ const annotationStyle = {
       .style("top", `${y + 10}px`)
       .style("display", "block");
   }
+  function moveTooltip([x, y]) {
+    tooltip.style("left", `${x + 10}px`).style("top", `${y + 10}px`);
+  }
   function hideTooltip() {
     tooltip.style("display", "none");
+  }
+  
+  // Helper to compute safe annotation offsets to keep inside view
+  function computeAnnotationOffsets(x, y, width, height, margin = 40) {
+    let dx = 40, dy = -50;
+    if (x + dx > width - margin) dx = -70;
+    if (x + dx < margin) dx = 70;
+    if (y + dy < margin) dy = 40;
+    if (y + dy > height - margin) dy = -40;
+    return {dx, dy};
   }
   
   Promise.all([
@@ -40,27 +54,25 @@ const annotationStyle = {
       Deaths: +d.deaths
     }))
   ]).then(([us, data]) => {
-    // Define margins and inner width/height for all scenes
-    const margin = {top: 60, right: 60, bottom: 40, left: 60};
     const fullWidth = 960;
     const fullHeight = 500;
-    const width = fullWidth - margin.left - margin.right;
-    const height = fullHeight - margin.top - margin.bottom;
   
-    // --- SCENE 1: US Map + First Case ---
+    // ===== SCENE 1 =====
     const svg1 = d3.select("#mapScene")
-      .attr("viewBox", [0, 0, fullWidth, fullHeight])
+      .attr("width", fullWidth)
+      .attr("height", fullHeight)
+      .attr("viewBox", `0 0 ${fullWidth} ${fullHeight}`)
       .style("overflow", "visible");
   
-    const mapGroup = svg1.append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+    svg1.selectAll("*").remove();
   
     const usStates = topojson.feature(us, us.objects.states);
   
-    const projection = d3.geoAlbersUsa().fitSize([width, height], usStates);
+    // Fit projection to full svg size (no margins)
+    const projection = d3.geoAlbersUsa().fitSize([fullWidth, fullHeight], usStates);
     const path = d3.geoPath().projection(projection);
   
-    mapGroup.selectAll("path")
+    svg1.selectAll("path")
       .data(usStates.features)
       .join("path")
       .attr("fill", "#e0e0e0")
@@ -68,11 +80,10 @@ const annotationStyle = {
       .attr("d", path);
   
     const seattleCoords = projection([-122.3321, 47.6062]);
-  
     if (seattleCoords) {
       const [x, y] = seattleCoords;
   
-      mapGroup.append("circle")
+      svg1.append("circle")
         .attr("cx", x)
         .attr("cy", y)
         .attr("r", 7)
@@ -80,32 +91,36 @@ const annotationStyle = {
         .attr("stroke", "black")
         .attr("stroke-width", 1);
   
-      let dx = 40, dy = -50;
-      if (x + dx > width) dx = -70;
-      if (y + dy < 0) dy = 40;
+      const {dx, dy} = computeAnnotationOffsets(x, y, fullWidth, fullHeight);
   
-      mapGroup.append("g").call(
+      svg1.append("g").call(
         d3.annotation().annotations([{
           ...annotationStyle,
-          dx,
-          dy,
-          x,
-          y,
+          x, y,
+          dx, dy,
           note: {
             title: "First Confirmed Case",
-            label: "Jan 21, 2020 — Washington state reports the first COVID-19 case in the US."
+            label: "Jan 21, 2020 — Washington state's first COVID-19 case."
           }
         }])
       );
     }
   
-    // --- SCENE 2: US Trend Line Chart ---
+    // ===== SCENE 2 =====
+    const margin2 = {top: 60, right: 60, bottom: 50, left: 70};
+    const width2 = fullWidth - margin2.left - margin2.right;
+    const height2 = fullHeight - margin2.top - margin2.bottom;
+  
     const svg2 = d3.select("#usTrend")
-      .attr("viewBox", [0, 0, fullWidth, fullHeight])
+      .attr("width", fullWidth)
+      .attr("height", fullHeight)
+      .attr("viewBox", `0 0 ${fullWidth} ${fullHeight}`)
       .style("overflow", "visible");
   
+    svg2.selectAll("*").remove();
+  
     const trendGroup = svg2.append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+      .attr("transform", `translate(${margin2.left},${margin2.top})`);
   
     const dailyCases = d3.rollup(
       data,
@@ -120,14 +135,18 @@ const annotationStyle = {
   
     const x2 = d3.scaleTime()
       .domain(d3.extent(timeSeries, d => d.Date))
-      .range([0, width]);
+      .range([0, width2]);
   
     const y2 = d3.scaleLinear()
       .domain([0, d3.max(timeSeries, d => d.Cases)]).nice()
-      .range([height, 0]);
+      .range([height2, 0]);
   
-    trendGroup.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x2));
-    trendGroup.append("g").call(d3.axisLeft(y2));
+    trendGroup.append("g")
+      .attr("transform", `translate(0,${height2})`)
+      .call(d3.axisBottom(x2));
+  
+    trendGroup.append("g")
+      .call(d3.axisLeft(y2));
   
     trendGroup.append("path")
       .datum(timeSeries)
@@ -150,21 +169,22 @@ const annotationStyle = {
           [event.pageX, event.pageY]
         );
       })
+      .on("mousemove", (event) => {
+        moveTooltip([event.pageX, event.pageY]);
+      })
       .on("mouseout", hideTooltip);
   
-    let annDx2 = 60, annDy2 = -60;
     const annX2 = x2(new Date("2020-07-01"));
     const annY2 = y2(60000);
-    if (annX2 + annDx2 > width) annDx2 = -60;
-    if (annY2 + annDy2 < 0) annDy2 = 60;
+    const {dx: dx2, dy: dy2} = computeAnnotationOffsets(annX2, annY2, width2, height2);
   
     trendGroup.append("g").call(
       d3.annotation().annotations([{
         ...annotationStyle,
-        dx: annDx2,
-        dy: annDy2,
         x: annX2,
         y: annY2,
+        dx: dx2,
+        dy: dy2,
         note: {
           title: "Summer Surge",
           label: "July 2020 saw a dramatic increase in daily cases."
@@ -172,13 +192,21 @@ const annotationStyle = {
       }])
     );
   
-    // --- SCENE 3: State Peak Bar Chart ---
+    // ===== SCENE 3 =====
+    const margin3 = {top: 60, right: 60, bottom: 50, left: 100};
+    const width3 = fullWidth - margin3.left - margin3.right;
+    const height3 = fullHeight - margin3.top - margin3.bottom;
+  
     const svg3 = d3.select("#barChart")
-      .attr("viewBox", [0, 0, fullWidth, fullHeight])
+      .attr("width", fullWidth)
+      .attr("height", fullHeight)
+      .attr("viewBox", `0 0 ${fullWidth} ${fullHeight}`)
       .style("overflow", "visible");
   
+    svg3.selectAll("*").remove();
+  
     const barGroup = svg3.append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+      .attr("transform", `translate(${margin3.left},${margin3.top})`);
   
     const peakByState = Array.from(
       d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
@@ -187,18 +215,18 @@ const annotationStyle = {
   
     const x3 = d3.scaleLinear()
       .domain([0, d3.max(peakByState, d => d.Peak)]).nice()
-      .range([0, width - 100]); // leave space for axis labels
+      .range([0, width3 - 100]);
   
     const y3 = d3.scaleBand()
       .domain(peakByState.map(d => d.State))
-      .range([0, height])
+      .range([0, height3])
       .padding(0.1);
   
     barGroup.append("g")
       .selectAll("rect")
       .data(peakByState)
       .join("rect")
-      .attr("x", 100)
+      .attr("x", 0)
       .attr("y", d => y3(d.State))
       .attr("width", d => x3(d.Peak))
       .attr("height", y3.bandwidth())
@@ -207,31 +235,32 @@ const annotationStyle = {
       .on("mouseover", (event, d) => {
         showTooltip(`<strong>${d.State}</strong><br/>Peak Cases: ${d.Peak.toLocaleString()}`, [event.pageX, event.pageY]);
       })
+      .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
       .on("mouseout", hideTooltip);
   
     barGroup.append("g")
-      .attr("transform", `translate(100,0)`)
       .call(d3.axisLeft(y3).tickSize(0))
       .selectAll("text")
       .attr("font-size", "10px");
   
     barGroup.append("g")
-      .attr("transform", `translate(100,${height})`)
+      .attr("transform", `translate(0,${height3})`)
       .call(d3.axisBottom(x3).ticks(6));
   
+    // Texas annotation - stagger if you add more annotations here
     const texasY = y3("Texas");
     if (texasY !== undefined && !isNaN(texasY)) {
-      let dx3 = 40, dy3 = -30;
-      if (600 + dx3 > width) dx3 = -70;
-      if (texasY + dy3 < 0) dy3 = 40;
+      const baseX = x3(d3.max(peakByState, d => d.Peak)) * 0.75;
+      const baseY = texasY + y3.bandwidth() / 2;
+      const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3);
   
       barGroup.append("g").call(
         d3.annotation().annotations([{
           ...annotationStyle,
-          dx: dx3,
-          dy: dy3,
-          x: 600,
-          y: texasY + y3.bandwidth() / 2,
+          x: baseX,
+          y: baseY,
+          dx,
+          dy,
           note: {
             title: "Highest Peak",
             label: "Texas recorded the highest daily case count."
@@ -240,13 +269,21 @@ const annotationStyle = {
       );
     }
   
-    // --- SCENE 4: State Line Chart with Dropdown ---
+    // ===== SCENE 4 =====
+    const margin4 = {top: 60, right: 60, bottom: 50, left: 70};
+    const width4 = fullWidth - margin4.left - margin4.right;
+    const height4 = fullHeight - margin4.top - margin4.bottom;
+  
     const svg4 = d3.select("#stateLineChart")
-      .attr("viewBox", [0, 0, fullWidth, fullHeight])
+      .attr("width", fullWidth)
+      .attr("height", fullHeight)
+      .attr("viewBox", `0 0 ${fullWidth} ${fullHeight}`)
       .style("overflow", "visible");
   
+    svg4.selectAll("*").remove();
+  
     const lineGroup = svg4.append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+      .attr("transform", `translate(${margin4.left},${margin4.top})`);
   
     const dropdown = d3.select("#dropdown");
     const stateList = Array.from(new Set(data.map(d => d.State))).sort();
@@ -263,14 +300,18 @@ const annotationStyle = {
   
       const x4 = d3.scaleTime()
         .domain(d3.extent(stateData, d => d.Date))
-        .range([0, width]);
+        .range([0, width4]);
   
       const y4 = d3.scaleLinear()
         .domain([0, d3.max(stateData, d => d.Cases)]).nice()
-        .range([height, 0]);
+        .range([height4, 0]);
   
-      lineGroup.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x4));
-      lineGroup.append("g").call(d3.axisLeft(y4));
+      lineGroup.append("g")
+        .attr("transform", `translate(0,${height4})`)
+        .call(d3.axisBottom(x4));
+  
+      lineGroup.append("g")
+        .call(d3.axisLeft(y4));
   
       lineGroup.append("path")
         .datum(stateData)
@@ -293,23 +334,23 @@ const annotationStyle = {
             [event.pageX, event.pageY]
           );
         })
+        .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
         .on("mouseout", hideTooltip);
   
+      // Annotation for November
       const nov = stateData.find(d => d.Date.getMonth() === 10);
       if (nov) {
-        let dx4 = 50, dy4 = -50;
         const novX = x4(nov.Date);
         const novY = y4(nov.Cases);
-        if (novX + dx4 > width) dx4 = -70;
-        if (novY + dy4 < 0) dy4 = 40;
+        const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4);
   
         lineGroup.append("g").call(
           d3.annotation().annotations([{
             ...annotationStyle,
-            dx: dx4,
-            dy: dy4,
             x: novX,
             y: novY,
+            dx,
+            dy,
             note: {
               title: "Fall Surge",
               label: `${selectedState} saw rising cases in fall 2020.`

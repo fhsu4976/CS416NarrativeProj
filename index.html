@@ -6,12 +6,13 @@
   <title>COVID-19 Narrative Visualization</title>
   <style>
     body { font-family: sans-serif; margin: 0; padding: 0; }
-    .scene { display: none; padding: 40px; overflow: visible;}
+    .scene { display: none; padding: 40px; overflow: visible; position: relative;}
     .active { display: block; }
-    svg { width: 100%; height: 500px; overflow: visible;}
+    svg { width: 100%; height: 500px; overflow: visible; position: relative;}
     button { margin-top: 20px; padding: 10px 20px; }
     #dropdown { margin-top: 20px; }
     .annotation { font-size: 14px; fill: darkslategray; font-style: italic; }
+    #tooltip { z-index: 1000; }
   </style>
 </head>
 <body>
