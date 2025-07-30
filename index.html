@@ -117,32 +117,37 @@
     }
     
     // Improved helper to compute safe annotation offsets avoiding overlaps
-    function computeAnnotationOffsets(x, y, width, height, sceneId, margin = 60) {
-      const annotationWidth = 220;
-      const annotationHeight = 120;
+    function computeAnnotationOffsets(x, y, width, height, sceneId, priority = 0, margin = 50) {
+      const annotationWidth = 200;
+      const annotationHeight = 100;
       
       // Clear existing annotations for new scene
-      if (sceneId) {
+      if (sceneId && priority === 0) {
         existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== sceneId);
       }
       
+      // More spread out positions with larger gaps
       const possiblePositions = [
-        { dx: 100, dy: -100 },      // top-right (preferred)
-        { dx: -annotationWidth - 40, dy: -100 }, // top-left
-        { dx: 100, dy: 40 },        // bottom-right
-        { dx: -annotationWidth - 40, dy: 40 },   // bottom-left
-        { dx: 140, dy: -60 },       // right-center
-        { dx: -annotationWidth - 80, dy: -60 },  // left-center
-        { dx: 60, dy: -140 },       // top-center-right
-        { dx: -180, dy: -140 },     // top-center-left
-        { dx: 60, dy: 80 },         // bottom-center-right
-        { dx: -180, dy: 80 }        // bottom-center-left
+        { dx: 120, dy: -120 },      // top-right
+        { dx: -annotationWidth - 60, dy: -120 }, // top-left
+        { dx: 120, dy: 60 },        // bottom-right
+        { dx: -annotationWidth - 60, dy: 60 },   // bottom-left
+        { dx: 180, dy: -60 },       // far right-center
+        { dx: -annotationWidth - 120, dy: -60 }, // far left-center
+        { dx: 80, dy: -180 },       // far top-right
+        { dx: -240, dy: -180 },     // far top-left
+        { dx: 80, dy: 120 },        // far bottom-right
+        { dx: -240, dy: 120 },      // far bottom-left
+        { dx: 220, dy: -100 },      // very far right
+        { dx: -annotationWidth - 160, dy: -100 }, // very far left
+        { dx: 0, dy: -200 },        // directly above
+        { dx: -100, dy: 140 }       // below left
       ];
       
       for (let pos of possiblePositions) {
         let { dx, dy } = pos;
         
-        // Ensure annotation stays within bounds with more generous margins
+        // Ensure annotation stays within bounds
         if (x + dx < margin) continue;
         if (x + dx + annotationWidth > width - margin) continue;
         if (y + dy < margin) continue;
@@ -157,10 +162,17 @@
           sceneId: sceneId
         };
         
-        // Check if it overlaps with any existing annotations
+        // Check if it overlaps with any existing annotations with buffer
         let overlaps = false;
+        const buffer = 20; // Additional spacing buffer
         for (let existing of existingAnnotations) {
-          if (rectanglesOverlap(newRect, existing)) {
+          const bufferedExisting = {
+            left: existing.left - buffer,
+            top: existing.top - buffer,
+            right: existing.right + buffer,
+            bottom: existing.bottom + buffer
+          };
+          if (rectanglesOverlap(newRect, bufferedExisting)) {
             overlaps = true;
             break;
           }
@@ -173,15 +185,15 @@
         }
       }
       
-      // Fallback - use a far offset position to minimize overlap
-      const fallback = { dx: 150, dy: -150 };
+      // Fallback - use a very far offset position
+      const fallback = { dx: 250 + (priority * 50), dy: -200 + (priority * 40) };
       
       // Final boundary adjustment for fallback
       if (x + fallback.dx + annotationWidth > width - margin) {
-        fallback.dx = -annotationWidth - 60;
+        fallback.dx = -annotationWidth - 100 - (priority * 50);
       }
       if (y + fallback.dy < margin) {
-        fallback.dy = 60;
+        fallback.dy = 100 + (priority * 40);
       }
       
       existingAnnotations.push({
@@ -230,29 +242,24 @@
         .attr("stroke", "#fff")
         .attr("d", path);
 
-      // Major airports and locations
+      // Major airports and locations - prioritized by importance
       const locations = [
-        { name: "Seattle", coords: [-122.3321, 47.6062], type: "first", 
-          title: "First Confirmed Case", 
-          label: "Jan 21, 2020 — Washington state's first COVID-19 case from a traveler returning from Wuhan." },
-        { name: "SFO", coords: [-122.3753, 37.6213], type: "airport", 
-          title: "San Francisco Airport", 
-          label: "Major international gateway — Early transmission hub connecting Asia-Pacific routes." },
-        { name: "LAX", coords: [-118.4085, 33.9425], type: "airport", 
-          title: "Los Angeles Airport", 
-          label: "Busiest West Coast hub — High-volume international traffic accelerated spread." },
-        { name: "ORD", coords: [-87.9073, 41.9742], type: "airport", 
-          title: "Chicago O'Hare Airport", 
-          label: "Central US hub — Connected coastal outbreaks to the Midwest." },
-        { name: "JFK", coords: [-73.7781, 40.6413], type: "airport", 
-          title: "JFK Airport", 
-          label: "Primary European gateway — Brought cases from Italy and other early hotspots." },
-        { name: "NYC", coords: [-74.0060, 40.7128], type: "hotspot", 
-          title: "New York City Hotspot", 
-          label: "March 2020 — Dense population and international connections made NYC the early epicenter." }
+        { name: "Seattle", coords: [-122.3321, 47.6062], type: "first", priority: 1,
+          title: "Patient Zero", 
+          label: "Jan 21, 2020 — First US case from Wuhan traveler" },
+        { name: "NYC", coords: [-74.0060, 40.7128], type: "hotspot", priority: 2,
+          title: "NYC Epicenter", 
+          label: "March 2020 — Dense population made NYC the early US hotspot" },
+        { name: "SFO", coords: [-122.3753, 37.6213], type: "airport", priority: 3,
+          title: "SFO Gateway", 
+          label: "Asia-Pacific international hub accelerated West Coast spread" },
+        { name: "LAX", coords: [-118.4085, 33.9425], type: "airport", priority: 4,
+          title: "LAX Hub", 
+          label: "Busiest West Coast airport connected global hotspots" }
       ];
 
-      locations.forEach(location => {
+      // Add annotations in priority order to avoid overlaps
+      locations.forEach((location, index) => {
         const projectedCoords = projection(location.coords);
         if (projectedCoords) {
           const [x, y] = projectedCoords;
@@ -294,7 +301,7 @@
               .text("✈");
           }
 
-          const {dx, dy} = computeAnnotationOffsets(x, y, fullWidth, fullHeight, 'scene1');
+          const {dx, dy} = computeAnnotationOffsets(x, y, fullWidth, fullHeight, 'scene1', location.priority);
 
           svg1.append("g").call(
             d3.annotation().annotations([{
@@ -305,20 +312,18 @@
                 ...annotationStyle.note,
                 title: location.title,
                 label: location.label,
-                wrap: 180,
-                padding: 8
+                wrap: 160,
+                padding: 6
               }
             }])
           );
         }
       });
 
-      // Add connecting lines to show potential spread patterns
+      // Simplified connecting lines - only key connections
       const connections = [
         ["Seattle", "SFO"],
-        ["SFO", "LAX"],
-        ["JFK", "NYC"],
-        ["ORD", "NYC"]
+        ["SFO", "LAX"]
       ];
 
       connections.forEach(([from, to]) => {
@@ -338,7 +343,7 @@
               .attr("stroke", "#666")
               .attr("stroke-width", 1)
               .attr("stroke-dasharray", "3,3")
-              .attr("opacity", 0.5);
+              .attr("opacity", 0.4);
           }
         }
       });
