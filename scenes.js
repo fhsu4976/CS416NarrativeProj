@@ -40,8 +40,10 @@ const annotationStyle = {
       Deaths: +d.deaths
     }))
   ]).then(([us, data]) => {
-    // SCENE 1
-    const svg1 = d3.select("#mapScene").attr("viewBox", [0, 0, 960, 500]);
+    // SCENE 1: US Map + First Case Dot + Annotation
+    const svg1 = d3.select("#mapScene")
+      .attr("viewBox", [0, 0, 960, 500])
+      .style("overflow", "visible");
   
     const usStates = topojson.feature(us, us.objects.states);
     const projection = d3.geoAlbersUsa().fitSize([960, 500], usStates);
@@ -55,6 +57,7 @@ const annotationStyle = {
       .attr("stroke", "#fff")
       .attr("d", path);
   
+    // Find first case record: Jan 21, 2020 Washington
     const firstCase = data.find(d =>
       d.Date.getFullYear() === 2020 &&
       d.Date.getMonth() === 0 &&
@@ -62,32 +65,38 @@ const annotationStyle = {
       d.State === "Washington"
     );
   
-    const coords = projection([-122.3321, 47.6062]);
+    // Seattle coords
+    const seattleCoords = projection([-122.3321, 47.6062]);
   
-    if (coords) {
+    if (seattleCoords) {
       svg1.append("circle")
-        .attr("cx", coords[0])
-        .attr("cy", coords[1])
-        .attr("r", 6)
-        .attr("fill", "red");
+        .attr("cx", seattleCoords[0])
+        .attr("cy", seattleCoords[1])
+        .attr("r", 7)
+        .attr("fill", "red")
+        .attr("stroke", "black")
+        .attr("stroke-width", 1);
   
       svg1.append("g").call(
         d3.annotation().annotations([{
           ...annotationStyle,
-          dx: 30,
-          dy: -40,
-          x: coords[0],
-          y: coords[1],
+          dx: 40,
+          dy: -50,
+          x: seattleCoords[0],
+          y: seattleCoords[1],
           note: {
-            title: "First Case",
-            label: "Jan 21, 2020 – Washington reports first COVID case."
+            title: "First Confirmed Case",
+            label: "Jan 21, 2020 — Washington state reports the first COVID-19 case in the US."
           }
         }])
       );
     }
   
-    // SCENE 2
-    const svg2 = d3.select("#usTrend").attr("viewBox", [0, 0, 960, 500]);
+    // SCENE 2: US Trend Line Chart
+    const svg2 = d3.select("#usTrend")
+      .attr("viewBox", [0, 0, 960, 500])
+      .style("overflow", "visible");
+  
     const dailyCases = d3.rollup(
       data,
       v => d3.sum(v, d => d.Cases),
@@ -122,10 +131,14 @@ const annotationStyle = {
       .join("circle")
       .attr("cx", d => x2(d.Date))
       .attr("cy", d => y2(d.Cases))
-      .attr("r", 3)
+      .attr("r", 4)
       .attr("fill", "steelblue")
+      .attr("pointer-events", "all")
       .on("mouseover", (event, d) => {
-        showTooltip(`<strong>${d.Date.toLocaleDateString()}</strong><br/>Cases: ${d.Cases.toLocaleString()}`, [event.pageX, event.pageY]);
+        showTooltip(
+          `<strong>${d.Date.toLocaleDateString()}</strong><br/>Cases: ${d.Cases.toLocaleString()}`,
+          [event.pageX, event.pageY]
+        );
       })
       .on("mouseout", hideTooltip);
   
@@ -143,8 +156,10 @@ const annotationStyle = {
       }])
     );
   
-    // SCENE 3
-    const svg3 = d3.select("#barChart").attr("viewBox", [0, 0, 960, 500]);
+    // SCENE 3: State Peak Bar Chart
+    const svg3 = d3.select("#barChart")
+      .attr("viewBox", [0, 0, 960, 500])
+      .style("overflow", "visible");
   
     const peakByState = Array.from(
       d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
@@ -169,6 +184,7 @@ const annotationStyle = {
       .attr("width", d => x3(d.Peak))
       .attr("height", y3.bandwidth())
       .attr("fill", "#4caf50")
+      .attr("pointer-events", "all")
       .on("mouseover", (event, d) => {
         showTooltip(`<strong>${d.State}</strong><br/>Peak Cases: ${d.Peak.toLocaleString()}`, [event.pageX, event.pageY]);
       })
@@ -200,8 +216,11 @@ const annotationStyle = {
       );
     }
   
-    // SCENE 4
-    const svg4 = d3.select("#stateLineChart").attr("viewBox", [0, 0, 960, 500]);
+    // SCENE 4: State Line Chart with Dropdown
+    const svg4 = d3.select("#stateLineChart")
+      .attr("viewBox", [0, 0, 960, 500])
+      .style("overflow", "visible");
+  
     const dropdown = d3.select("#dropdown");
     const stateList = Array.from(new Set(data.map(d => d.State))).sort();
   
@@ -238,10 +257,14 @@ const annotationStyle = {
         .join("circle")
         .attr("cx", d => x4(d.Date))
         .attr("cy", d => y4(d.Cases))
-        .attr("r", 3)
+        .attr("r", 4)
         .attr("fill", "#ff9800")
+        .attr("pointer-events", "all")
         .on("mouseover", (event, d) => {
-          showTooltip(`<strong>${d.Date.toLocaleDateString()}</strong><br/>Cases: ${d.Cases.toLocaleString()}`, [event.pageX, event.pageY]);
+          showTooltip(
+            `<strong>${d.Date.toLocaleDateString()}</strong><br/>Cases: ${d.Cases.toLocaleString()}`,
+            [event.pageX, event.pageY]
+          );
         })
         .on("mouseout", hideTooltip);
   
