@@ -18,13 +18,12 @@ const annotationStyle = {
     d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
     d3.csv("covid_data.csv", d3.autoType)
   ]).then(([us, data]) => {
-  
     // Scene 1: US Map + First Case
-    const svg1 = d3.select("#mapScene")
-      .attr("viewBox", [0, 0, 960, 500]);
+    const svg1 = d3.select("#mapScene").attr("viewBox", [0, 0, 960, 500]);
   
     const path = d3.geoPath();
     const usStates = topojson.feature(us, us.objects.states);
+    const projection = d3.geoAlbersUsa().fitSize([960, 500], usStates);
   
     svg1.append("g")
       .selectAll("path")
@@ -35,7 +34,6 @@ const annotationStyle = {
       .attr("d", path);
   
     const firstCase = data.find(d => d.Date instanceof Date && d.Date.getFullYear() === 2020 && d.Date.getMonth() === 0 && d.Date.getDate() === 21 && d.State === "Washington");
-    const projection = d3.geoAlbersUsa().fitSize([960, 500], usStates);
     const coords = projection([-122.3321, 47.6062]); // Seattle, WA
   
     if (coords) {
@@ -60,8 +58,7 @@ const annotationStyle = {
     }
   
     // Scene 2: US Trendline
-    const svg2 = d3.select("#usTrend")
-      .attr("viewBox", [0, 0, 960, 500]);
+    const svg2 = d3.select("#usTrend").attr("viewBox", [0, 0, 960, 500]);
   
     const dailyCases = d3.rollup(
       data,
@@ -69,7 +66,7 @@ const annotationStyle = {
       d => d.Date
     );
   
-    const timeSeries = Array.from(dailyCases, ([d, cases]) => ({ Date: d, Cases: cases }));
+    const timeSeries = Array.from(dailyCases, ([d, cases]) => ({ Date: d, Cases: cases })).filter(d => d.Date instanceof Date);
   
     const x2 = d3.scaleTime()
       .domain(d3.extent(timeSeries, d => d.Date))
@@ -110,15 +107,15 @@ const annotationStyle = {
     svg2.append("g").call(annotations2);
   
     // Scene 3: State Peak Bar Chart
-    const svg3 = d3.select("#barChart")
-      .attr("viewBox", [0, 0, 960, 500]);
+    const svg3 = d3.select("#barChart").attr("viewBox", [0, 0, 960, 500]);
   
     const peakByState = Array.from(
       d3.rollup(
         data,
         v => d3.max(v, d => d.Cases),
         d => d.State
-      ), ([State, Peak]) => ({ State, Peak })
+      ),
+      ([State, Peak]) => ({ State, Peak })
     );
   
     const x3 = d3.scaleLinear()
@@ -164,8 +161,7 @@ const annotationStyle = {
     svg3.append("g").call(annotations3);
   
     // Scene 4: Dropdown State Line Chart
-    const svg4 = d3.select("#stateLineChart")
-      .attr("viewBox", [0, 0, 960, 500]);
+    const svg4 = d3.select("#stateLineChart").attr("viewBox", [0, 0, 960, 500]);
   
     const dropdown = d3.select("#dropdown");
     const stateList = Array.from(new Set(data.map(d => d.State))).sort();
@@ -179,7 +175,7 @@ const annotationStyle = {
       svg4.selectAll("*").remove();
   
       const stateData = data.filter(d => d.State === selectedState);
-      const timeData = stateData.map(d => ({ Date: d.Date, Cases: d.Cases }));
+      const timeData = stateData.filter(d => d.Date instanceof Date).map(d => ({ Date: d.Date, Cases: d.Cases }));
   
       const x4 = d3.scaleTime()
         .domain(d3.extent(timeData, d => d.Date))
@@ -206,7 +202,7 @@ const annotationStyle = {
           .x(d => x4(d.Date))
           .y(d => y4(d.Cases)));
   
-      const novData = timeData.find(d => d.Date instanceof Date && d.Date.getMonth() === 10); // November = 10
+      const novData = timeData.find(d => d.Date instanceof Date && d.Date.getMonth() === 10);
       if (novData) {
         const annotations4 = d3.annotation()
           .annotations([{
@@ -227,6 +223,5 @@ const annotationStyle = {
     dropdown.on("change", function () {
       drawStateChart(this.value);
     });
-  
   });
   
