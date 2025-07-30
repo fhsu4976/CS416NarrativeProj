@@ -23,12 +23,14 @@
 <body>
   <div id="scene1" class="scene active">
     <h2>Scene 1: Where It Started</h2>
+    <h3>Patient Zero</h3>
     <svg id="mapScene"></svg>
     <button onclick="nextScene(2)">See What Happened Next</button>
   </div>
 
   <div id="scene2" class="scene">
     <h2>Scene 2: Surges and Spikes</h2>
+    <h3>Cases trend across the US</h3>
     <svg id="usTrend"></svg>
     <button onclick="nextScene(1)">Back</button>
     <button onclick="nextScene(3)">What About Individual States?</button>
@@ -36,6 +38,7 @@
 
   <div id="scene3" class="scene">
     <h2>Scene 3: State-by-State Peaks</h2>
+    <h3>Some states had it worse than others</h3>
     <svg id="barChart"></svg>
     <button onclick="nextScene(2)">Back</button>
     <button onclick="nextScene(4)">Explore Your State</button>
@@ -43,6 +46,7 @@
 
   <div id="scene4" class="scene">
     <h2>Scene 4: Explore Your State</h2>
+    <h3>But each state had their own struggles</h3>
     <label for="dropdown">Select a state:</label>
     <select id="dropdown"></select>
     <svg id="stateLineChart"></svg>
@@ -384,7 +388,7 @@
       const y3 = d3.scaleBand()
         .domain(peakByState.map(d => d.State))
         .range([0, height3])
-        .padding(0.1);
+        .padding(0.4);
     
       barGroup.append("g")
         .selectAll("rect")
