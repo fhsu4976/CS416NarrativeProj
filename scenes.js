@@ -1,6 +1,4 @@
-// scenes.js
-
-// Common styling for annotations
+// Common annotation styling
 const annotationStyle = {
     note: {
       label: "",
@@ -13,14 +11,19 @@ const annotationStyle = {
     type: d3.annotationCalloutCircle
   };
   
-  // Load COVID data and initialize all scenes
+  // Load data and draw all scenes
   Promise.all([
     d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
-    d3.csv("covid_data.csv", d3.autoType)
+    d3.csv("covid_data.csv", d => ({
+      Date: new Date(d.date),
+      State: d.state.trim(),
+      Cases: +d.cases,
+      Deaths: +d.deaths,
+      FIPS: +d.fips
+    }))
   ]).then(([us, data]) => {
-    // Scene 1: US Map + First Case
+    // -------------------- Scene 1: Map + First Case --------------------
     const svg1 = d3.select("#mapScene").attr("viewBox", [0, 0, 960, 500]);
-  
     const path = d3.geoPath();
     const usStates = topojson.feature(us, us.objects.states);
     const projection = d3.geoAlbersUsa().fitSize([960, 500], usStates);
@@ -33,7 +36,13 @@ const annotationStyle = {
       .attr("stroke", "#fff")
       .attr("d", path);
   
-    const firstCase = data.find(d => d.Date instanceof Date && d.Date.getFullYear() === 2020 && d.Date.getMonth() === 0 && d.Date.getDate() === 21 && d.State === "Washington");
+    const firstCase = data.find(d =>
+      d.Date.getFullYear() === 2020 &&
+      d.Date.getMonth() === 0 &&
+      d.Date.getDate() === 21 &&
+      d.State === "Washington"
+    );
+  
     const coords = projection([-122.3321, 47.6062]); // Seattle, WA
   
     if (coords) {
@@ -43,8 +52,8 @@ const annotationStyle = {
         .attr("r", 6)
         .attr("fill", "red");
   
-      const annotations1 = d3.annotation()
-        .annotations([{
+      svg1.append("g").call(
+        d3.annotation().annotations([{
           ...annotationStyle,
           x: coords[0],
           y: coords[1],
@@ -52,21 +61,23 @@ const annotationStyle = {
             title: "First Case",
             label: "Jan 21, 2020 – Washington reports first COVID case."
           }
-        }]);
-  
-      svg1.append("g").call(annotations1);
+        }])
+      );
     }
   
-    // Scene 2: US Trendline
+    // -------------------- Scene 2: US Trend Line --------------------
     const svg2 = d3.select("#usTrend").attr("viewBox", [0, 0, 960, 500]);
   
     const dailyCases = d3.rollup(
       data,
       v => d3.sum(v, d => d.Cases),
-      d => d.Date
+      d => +d.Date // Use timestamp as key
     );
   
-    const timeSeries = Array.from(dailyCases, ([d, cases]) => ({ Date: d, Cases: cases })).filter(d => d.Date instanceof Date);
+    const timeSeries = Array.from(dailyCases, ([ts, cases]) => ({
+      Date: new Date(ts),
+      Cases: cases
+    }));
   
     const x2 = d3.scaleTime()
       .domain(d3.extent(timeSeries, d => d.Date))
@@ -90,11 +101,13 @@ const annotationStyle = {
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
       .attr("d", d3.line()
+        .defined(d => d.Date && !isNaN(d.Cases))
         .x(d => x2(d.Date))
-        .y(d => y2(d.Cases)));
+        .y(d => y2(d.Cases))
+      );
   
-    const annotations2 = d3.annotation()
-      .annotations([{
+    svg2.append("g").call(
+      d3.annotation().annotations([{
         ...annotationStyle,
         x: x2(new Date("2020-07-01")),
         y: y2(60000),
@@ -102,11 +115,10 @@ const annotationStyle = {
           title: "Summer Surge",
           label: "July 2020 saw a dramatic increase in daily cases."
         }
-      }]);
+      }])
+    );
   
-    svg2.append("g").call(annotations2);
-  
-    // Scene 3: State Peak Bar Chart
+    // -------------------- Scene 3: State Peak Bar Chart --------------------
     const svg3 = d3.select("#barChart").attr("viewBox", [0, 0, 960, 500]);
   
     const peakByState = Array.from(
@@ -117,6 +129,8 @@ const annotationStyle = {
       ),
       ([State, Peak]) => ({ State, Peak })
     );
+  
+    peakByState.sort((a, b) => b.Peak - a.Peak);
   
     const x3 = d3.scaleLinear()
       .domain([0, d3.max(peakByState, d => d.Peak)]).nice()
@@ -147,35 +161,37 @@ const annotationStyle = {
       .attr("transform", "translate(100,480)")
       .call(d3.axisBottom(x3).ticks(6));
   
-    const annotations3 = d3.annotation()
-      .annotations([{
-        ...annotationStyle,
-        x: 600,
-        y: y3("Texas") + 10,
-        note: {
-          title: "Highest Peak",
-          label: "Texas recorded the highest daily case count."
-        }
-      }]);
+    const texasY = y3("Texas");
+    if (texasY !== undefined) {
+      svg3.append("g").call(
+        d3.annotation().annotations([{
+          ...annotationStyle,
+          x: 600,
+          y: texasY + y3.bandwidth() / 2,
+          note: {
+            title: "Highest Peak",
+            label: "Texas recorded the highest daily case count."
+          }
+        }])
+      );
+    }
   
-    svg3.append("g").call(annotations3);
-  
-    // Scene 4: Dropdown State Line Chart
+    // -------------------- Scene 4: State Dropdown Line Chart --------------------
     const svg4 = d3.select("#stateLineChart").attr("viewBox", [0, 0, 960, 500]);
-  
     const dropdown = d3.select("#dropdown");
     const stateList = Array.from(new Set(data.map(d => d.State))).sort();
   
     dropdown.selectAll("option")
       .data(stateList)
-      .enter().append("option")
+      .enter()
+      .append("option")
       .text(d => d);
   
     function drawStateChart(selectedState) {
       svg4.selectAll("*").remove();
   
       const stateData = data.filter(d => d.State === selectedState);
-      const timeData = stateData.filter(d => d.Date instanceof Date).map(d => ({ Date: d.Date, Cases: d.Cases }));
+      const timeData = stateData.filter(d => d.Date && !isNaN(d.Cases));
   
       const x4 = d3.scaleTime()
         .domain(d3.extent(timeData, d => d.Date))
@@ -199,27 +215,29 @@ const annotationStyle = {
         .attr("stroke", "#ff9800")
         .attr("stroke-width", 2)
         .attr("d", d3.line()
+          .defined(d => d.Date && !isNaN(d.Cases))
           .x(d => x4(d.Date))
-          .y(d => y4(d.Cases)));
+          .y(d => y4(d.Cases))
+        );
   
-      const novData = timeData.find(d => d.Date instanceof Date && d.Date.getMonth() === 10);
-      if (novData) {
-        const annotations4 = d3.annotation()
-          .annotations([{
+      const novPoint = timeData.find(d => d.Date.getMonth() === 10); // November
+      if (novPoint) {
+        svg4.append("g").call(
+          d3.annotation().annotations([{
             ...annotationStyle,
-            x: x4(novData.Date),
-            y: y4(novData.Cases),
+            x: x4(novPoint.Date),
+            y: y4(novPoint.Cases),
             note: {
               title: "Fall Surge",
               label: `${selectedState} saw rising cases in fall 2020.`
             }
-          }]);
-  
-        svg4.append("g").call(annotations4);
+          }])
+        );
       }
     }
   
     drawStateChart(stateList[0]);
+  
     dropdown.on("change", function () {
       drawStateChart(this.value);
     });
