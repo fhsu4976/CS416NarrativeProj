@@ -90,39 +90,83 @@
       tooltip.style("display", "none");
     }
     
-    // Improved helper to compute safe annotation offsets to keep inside view
-    function computeAnnotationOffsets(x, y, width, height, margin = 50) {
+    // Global array to track annotation positions across all scenes
+    let existingAnnotations = [];
+    
+    // Helper to check if two rectangles overlap
+    function rectanglesOverlap(rect1, rect2) {
+      return !(rect1.right < rect2.left || 
+               rect2.right < rect1.left || 
+               rect1.bottom < rect2.top || 
+               rect2.bottom < rect1.top);
+    }
+    
+    // Improved helper to compute safe annotation offsets avoiding overlaps
+    function computeAnnotationOffsets(x, y, width, height, sceneId, margin = 50) {
       const annotationWidth = 200;
       const annotationHeight = 100;
       
-      let dx = 80;
-      let dy = -80;
-      
-      // Horizontal positioning
-      if (x > width / 2) {
-        // Point is on right side, place annotation to the left
-        dx = -annotationWidth - 30;
-      } else {
-        // Point is on left side, place annotation to the right
-        dx = 80;
+      // Clear existing annotations for new scene
+      if (sceneId) {
+        existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== sceneId);
       }
       
-      // Vertical positioning
-      if (y < height / 2) {
-        // Point is in upper half, place annotation below
-        dy = 80;
-      } else {
-        // Point is in lower half, place annotation above
-        dy = -annotationHeight - 30;
+      const possiblePositions = [
+        { dx: 80, dy: -80 },        // top-right
+        { dx: -annotationWidth - 30, dy: -80 }, // top-left
+        { dx: 80, dy: 80 },         // bottom-right
+        { dx: -annotationWidth - 30, dy: 80 },  // bottom-left
+        { dx: 120, dy: -40 },       // right-center
+        { dx: -annotationWidth - 60, dy: -40 }, // left-center
+        { dx: 40, dy: -120 },       // top-center-right
+        { dx: -160, dy: -120 }      // top-center-left
+      ];
+      
+      for (let pos of possiblePositions) {
+        let { dx, dy } = pos;
+        
+        // Ensure annotation stays within bounds
+        if (x + dx < margin) continue;
+        if (x + dx + annotationWidth > width - margin) continue;
+        if (y + dy < margin) continue;
+        if (y + dy + annotationHeight > height - margin) continue;
+        
+        // Create rectangle for this potential annotation
+        const newRect = {
+          left: x + dx,
+          top: y + dy,
+          right: x + dx + annotationWidth,
+          bottom: y + dy + annotationHeight,
+          sceneId: sceneId
+        };
+        
+        // Check if it overlaps with any existing annotations
+        let overlaps = false;
+        for (let existing of existingAnnotations) {
+          if (rectanglesOverlap(newRect, existing)) {
+            overlaps = true;
+            break;
+          }
+        }
+        
+        if (!overlaps) {
+          // Store this annotation position
+          existingAnnotations.push(newRect);
+          return { dx, dy };
+        }
       }
       
-      // Final boundary checks to ensure annotation stays within bounds
-      if (x + dx < margin) dx = margin - x + 10;
-      if (x + dx + annotationWidth > width - margin) dx = width - margin - annotationWidth - x - 10;
-      if (y + dy < margin) dy = margin - y + 10;
-      if (y + dy + annotationHeight > height - margin) dy = height - margin - annotationHeight - y - 10;
+      // Fallback - use first position even if it overlaps
+      const fallback = possiblePositions[0];
+      existingAnnotations.push({
+        left: x + fallback.dx,
+        top: y + fallback.dy,
+        right: x + fallback.dx + annotationWidth,
+        bottom: y + fallback.dy + annotationHeight,
+        sceneId: sceneId
+      });
       
-      return { dx, dy };
+      return fallback;
     }
     
     Promise.all([
