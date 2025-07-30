@@ -351,9 +351,9 @@
       if (julyData) {
         const annX2 = x2(julyData.Date);
         const annY2 = y2(julyData.Cases);
-        // Hardcoded position: top-right to avoid line
-        const dx2 = 80;
-        const dy2 = -60;
+        // Hardcoded position: far top-right with more clearance
+        const dx2 = 120;
+        const dy2 = -120;
     
         trendGroup.append("g").call(
           d3.annotation().annotations([{
@@ -365,9 +365,9 @@
             note: {
               ...annotationStyle.note,
               title: "Summer Surge",
-              label: "July 2020 saw a dramatic increase in daily cases",
-              wrap: 140,
-              padding: 8
+              label: "July 2020 saw dramatic increase in daily cases",
+              wrap: 120,
+              padding: 10
             }
           }])
         );
@@ -436,11 +436,11 @@
       // Annotation for top state - hardcoded position
       if (peakByState.length > 0) {
         const topState = peakByState[0];
-        const baseX = x3(topState.Peak) * 0.5;
+        const baseX = x3(topState.Peak) * 0.3; // Position closer to left
         const baseY = y3(topState.State) + y3.bandwidth() / 2;
-        // Hardcoded position: right side to avoid bar
-        const dx = 120;
-        const dy = -40;
+        // Hardcoded position: far right with more clearance
+        const dx = 180;
+        const dy = -80;
 
         barGroup.append("g").call(
           d3.annotation().annotations([{
@@ -452,9 +452,9 @@
             note: {
               ...annotationStyle.note,
               title: "Highest Peak",
-              label: `${topState.State} recorded the highest daily case count`,
-              wrap: 130,
-              padding: 8
+              label: `${topState.State} had the highest daily cases`,
+              wrap: 110,
+              padding: 10
             }
           }])
         );
@@ -539,9 +539,9 @@
           const midNov = novemberData[Math.floor(novemberData.length / 2)];
           const novX = x4(midNov.Date);
           const novY = y4(midNov.Cases);
-          // Hardcoded position: top-left to avoid line
-          const dx = -150;
-          const dy = -50;
+          // Hardcoded position: far top-left with more clearance
+          const dx = -200;
+          const dy = -100;
     
           lineGroup.append("g").call(
             d3.annotation().annotations([{
@@ -554,8 +554,8 @@
                 ...annotationStyle.note,
                 title: "Fall Surge",
                 label: `${selectedState} saw rising cases in fall 2020`,
-                wrap: 130,
-                padding: 8
+                wrap: 110,
+                padding: 10
               }
             }])
           );
