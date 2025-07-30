@@ -13,11 +13,12 @@
     #dropdown { margin-top: 20px; }
     .annotation { font-size: 12px; fill: darkslategray; font-style: italic; }
     .annotation-note-title { font-weight: bold; font-size: 14px; }
-    .annotation-note-label {   font-size: 12px;
+    .annotation-note-label { 
+      font-size: 12px;
       fill: darkslategray;
       font-style: italic;
     }
-    #tooltip { z-index: 1000; };  
+    #tooltip { z-index: 1000; }
   </style>
 </head>
 <body>
@@ -27,7 +28,6 @@
     <svg id="mapScene"></svg>
     <button onclick="nextScene(2)">See What Happened Next</button>
   </div>
-
   <div id="scene2" class="scene">
     <h2>Scene 2: Surges and Spikes</h2>
     <h3>Cases trend across the US</h3>
@@ -35,7 +35,6 @@
     <button onclick="nextScene(1)">Back</button>
     <button onclick="nextScene(3)">What About Individual States?</button>
   </div>
-
   <div id="scene3" class="scene">
     <h2>Scene 3: State-by-State Peaks</h2>
     <h3>Some states had it worse than others</h3>
@@ -43,7 +42,6 @@
     <button onclick="nextScene(2)">Back</button>
     <button onclick="nextScene(4)">Explore Your State</button>
   </div>
-
   <div id="scene4" class="scene">
     <h2>Scene 4: Explore Your State</h2>
     <h3>But each state had their own struggles</h3>
@@ -52,7 +50,6 @@
     <svg id="stateLineChart"></svg>
     <button onclick="nextScene(3)">Back</button>
   </div>
-
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/topojson-client@3"></script>
   <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
@@ -63,13 +60,14 @@
       document.getElementById(`scene${n}`).classList.add('active');
     }
 
+    // Fixed annotation style with proper text spacing
     const annotationStyle = {
       note: {
         label: "",
         title: "",
         wrap: 160,
         align: "middle",
-        padding: 8,
+        padding: 10,
         lineType: "horizontal"
       },
       type: d3.annotationCalloutCircle,
@@ -105,9 +103,6 @@
       tooltip.style("display", "none");
     }
     
-    // Global array to track annotation positions across all scenes
-    let existingAnnotations = [];
-    
     Promise.all([
       d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
       d3.csv("covid_data.csv", d => ({
@@ -142,7 +137,7 @@
         .attr("fill", "#e0e0e0")
         .attr("stroke", "#fff")
         .attr("d", path);
-
+      
       // Major locations with hardcoded annotation positions
       const locations = [
         { 
@@ -151,7 +146,7 @@
           type: "first",
           title: "Patient Zero", 
           label: "Jan 21, 2020 — First US case from Wuhan traveler",
-          annotationOffset: { dx: -180, dy: -60 } // Left side to avoid clutter
+          annotationOffset: { dx: -180, dy: -60 }
         },
         { 
           name: "NYC", 
@@ -159,7 +154,7 @@
           type: "hotspot",
           title: "NYC Epicenter", 
           label: "March 2020 — Dense population made NYC the early US hotspot",
-          annotationOffset: { dx: 60, dy: -80 } // Top right
+          annotationOffset: { dx: 60, dy: -80 }
         },
         { 
           name: "SFO", 
@@ -167,7 +162,7 @@
           type: "airport",
           title: "SFO Gateway", 
           label: "Asia-Pacific hub accelerated West Coast spread",
-          annotationOffset: { dx: -160, dy: 40 } // Bottom left
+          annotationOffset: { dx: -160, dy: 40 }
         },
         { 
           name: "LAX", 
@@ -175,16 +170,16 @@
           type: "airport",
           title: "LAX Hub", 
           label: "Busiest West Coast airport connected global hotspots",
-          annotationOffset: { dx: 60, dy: 60 } // Bottom right
+          annotationOffset: { dx: 60, dy: 60 }
         }
       ];
-
+      
       // Add markers and annotations
       locations.forEach(location => {
         const projectedCoords = projection(location.coords);
         if (projectedCoords) {
           const [x, y] = projectedCoords;
-
+          
           // Different styling for different types
           let fillColor, strokeColor, radius;
           if (location.type === "first") {
@@ -200,7 +195,7 @@
             strokeColor = "black";
             radius = 10;
           }
-
+          
           svg1.append("circle")
             .attr("cx", x)
             .attr("cy", y)
@@ -209,7 +204,7 @@
             .attr("stroke", strokeColor)
             .attr("stroke-width", 2)
             .attr("opacity", 0.8);
-
+          
           // Add airport symbol for airports
           if (location.type === "airport") {
             svg1.append("text")
@@ -221,10 +216,10 @@
               .attr("fill", "white")
               .text("✈");
           }
-
+          
           // Use hardcoded annotation positions
           const { dx, dy } = location.annotationOffset;
-
+          
           svg1.append("g").call(
             d3.annotation().annotations([{
               ...annotationStyle,
@@ -235,7 +230,7 @@
                 title: location.title,
                 label: location.label,
                 wrap: 160,
-                padding: 8
+                padding: 10
               }
             }])
           );
@@ -247,7 +242,7 @@
         ["Seattle", "SFO"],
         ["SFO", "LAX"]
       ];
-
+      
       connections.forEach(([from, to]) => {
         const fromLocation = locations.find(l => l.name === from);
         const toLocation = locations.find(l => l.name === to);
@@ -269,7 +264,7 @@
           }
         }
       });
-
+      
       // ===== SCENE 2 =====
       const margin2 = {top: 60, right: 60, bottom: 50, left: 70};
       const width2 = fullWidth - margin2.left - margin2.right;
@@ -339,7 +334,6 @@
         .on("mouseout", hideTooltip);
     
       // Find summer surge annotation point - look for July 2020 data
-      const julyDate = new Date("2020-07-01");
       const julyData = timeSeries.find(d => 
         d.Date.getFullYear() === 2020 && 
         d.Date.getMonth() === 6 && 
@@ -349,11 +343,10 @@
       if (julyData) {
         const annX2 = x2(julyData.Date);
         const annY2 = y2(julyData.Cases);
-        // Hardcoded position: far top-right with more clearance
         const dx2 = 120;
         const dy2 = -120;
     
-        trendGroup.append("g").call(
+        const annotationGroup = trendGroup.append("g").call(
           d3.annotation().annotations([{
             ...annotationStyle,
             x: annX2,
@@ -365,46 +358,54 @@
               title: "Summer Surge",
               label: "July 2020 saw dramatic increase in daily cases",
               wrap: 160,
-              padding: 8
+              padding: 10
             }
           }])
         );
+        
+        // Fix text positioning manually
+        setTimeout(() => {
+          annotationGroup.selectAll(".annotation-note-title")
+            .attr("dy", "0.8em");
+          annotationGroup.selectAll(".annotation-note-label")
+            .attr("dy", "2.2em");
+        }, 100);
       }
-
+      
       // ===== SCENE 3 =====
       const margin3 = { top: 60, right: 60, bottom: 60, left: 140 };
       const fullWidth3 = 1200;
-      const fullHeight3 = 1000; // Enough height for 50 bars with spacing
+      const fullHeight3 = 1000;
       const width3 = fullWidth3 - margin3.left - margin3.right;
       const height3 = fullHeight3 - margin3.top - margin3.bottom;
-
+      
       const svg3 = d3.select("#barChart")
         .attr("width", fullWidth3)
         .attr("height", fullHeight3)
         .attr("viewBox", `0 0 ${fullWidth3} ${fullHeight3}`)
         .style("overflow", "visible");
-
+      
       svg3.selectAll("*").remove();
-
+      
       const barGroup = svg3.append("g")
         .attr("transform", `translate(${margin3.left},${margin3.top})`);
-
+      
       const peakByState = Array.from(
         d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
         ([State, Peak]) => ({ State, Peak })
       )
         .filter(d => !isNaN(d.Peak))
         .sort((a, b) => b.Peak - a.Peak);
-
+      
       const x3 = d3.scaleLinear()
         .domain([0, d3.max(peakByState, d => d.Peak)]).nice()
         .range([0, width3]);
-
+      
       const y3 = d3.scaleBand()
         .domain(peakByState.map(d => d.State))
         .range([0, height3])
-        .padding(0.25); // More padding between bars
-
+        .padding(0.25);
+      
       barGroup.append("g")
         .selectAll("rect")
         .data(peakByState)
@@ -420,27 +421,26 @@
         })
         .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
         .on("mouseout", hideTooltip);
-
+      
       barGroup.append("g")
         .call(d3.axisLeft(y3).tickSize(0))
         .selectAll("text")
-        .attr("font-size", "12px") // Slightly smaller for better spacing
+        .attr("font-size", "12px")
         .attr("dy", "0.35em");
-
+      
       barGroup.append("g")
         .attr("transform", `translate(0,${height3})`)
         .call(d3.axisBottom(x3).ticks(8));
-
+      
       // Annotation for top state - hardcoded position
       if (peakByState.length > 0) {
         const topState = peakByState[0];
-        const baseX = x3(topState.Peak) * 0.3; // Position closer to left
+        const baseX = x3(topState.Peak) * 0.3;
         const baseY = y3(topState.State) + y3.bandwidth() / 2;
-        // Hardcoded position: far right with more clearance
         const dx = 180;
         const dy = -80;
-
-        barGroup.append("g").call(
+        
+        const annotationGroup3 = barGroup.append("g").call(
           d3.annotation().annotations([{
             ...annotationStyle,
             x: baseX,
@@ -452,12 +452,20 @@
               title: "Highest Peak",
               label: `${topState.State} had the highest daily cases`,
               wrap: 160,
-              padding: 8
+              padding: 10
             }
           }])
         );
+        
+        // Fix text positioning manually
+        setTimeout(() => {
+          annotationGroup3.selectAll(".annotation-note-title")
+            .attr("dy", "0.8em");
+          annotationGroup3.selectAll(".annotation-note-label")
+            .attr("dy", "2.2em");
+        }, 100);
       }
-
+      
       // ===== SCENE 4 =====
       const margin4 = {top: 60, right: 60, bottom: 50, left: 70};
       const width4 = fullWidth - margin4.left - margin4.right;
@@ -529,19 +537,17 @@
         // Annotation for November fall surge
         const novemberData = stateData.filter(d => 
           d.Date.getFullYear() === 2020 && 
-          d.Date.getMonth() === 10 // November (0-indexed)
+          d.Date.getMonth() === 10
         );
         
         if (novemberData.length > 0) {
-          // Find a good point in November to annotate
           const midNov = novemberData[Math.floor(novemberData.length / 2)];
           const novX = x4(midNov.Date);
           const novY = y4(midNov.Cases);
-          // Hardcoded position: far top-left with more clearance
           const dx = -200;
           const dy = -100;
     
-          lineGroup.append("g").call(
+          const annotationGroup4 = lineGroup.append("g").call(
             d3.annotation().annotations([{
               ...annotationStyle,
               x: novX,
@@ -553,10 +559,18 @@
                 title: "Fall Surge",
                 label: `${selectedState} saw rising cases in fall 2020`,
                 wrap: 160,
-                padding: 8
+                padding: 10
               }
             }])
           );
+          
+          // Fix text positioning manually
+          setTimeout(() => {
+            annotationGroup4.selectAll(".annotation-note-title")
+              .attr("dy", "0.8em");
+            annotationGroup4.selectAll(".annotation-note-label")
+              .attr("dy", "2.2em");
+          }, 100);
         }
       }
     
