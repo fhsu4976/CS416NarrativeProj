@@ -1,0 +1,102 @@
+<!-- scene3.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scene 3: State-by-State Peaks</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 40px; }
+    svg { width: 100%; height: 800px; overflow: visible; }
+    button { margin-top: 20px; padding: 10px 20px; }
+    #tooltip {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 6px;
+      font-size: 12px;
+      border-radius: 4px;
+      display: none;
+      pointer-events: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <h2>Scene 3: State-by-State Peaks</h2>
+  <h3>Some states had it worse than others</h3>
+  <svg id="barChart"></svg>
+  <button onclick="location.href='scene2.html'">Back</button>
+  <button onclick="location.href='scene4.html'">Explore Your State</button>
+  <div id="tooltip"></div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
+  <script>
+    const margin = { top: 60, right: 60, bottom: 60, left: 140 };
+    const fullWidth = 1200, fullHeight = 900;
+    const width = fullWidth - margin.left - margin.right;
+    const height = fullHeight - margin.top - margin.bottom;
+
+    const svg = d3.select("#barChart")
+      .attr("width", fullWidth)
+      .attr("height", fullHeight)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const tooltip = d3.select("#tooltip");
+    const annotationStyle = {
+      note: { wrap: 160, padding: 10, align: "middle" },
+      type: d3.annotationCalloutCircle,
+      connector: { end: "dot" },
+      color: "#333"
+    };
+
+    d3.csv("covid_data.csv", d => ({
+      state: d.state.trim(),
+      cases: +d.cases
+    })).then(data => {
+      const peakByState = Array.from(
+        d3.rollup(data, v => d3.max(v, d => d.cases), d => d.state),
+        ([state, peak]) => ({ state, peak })
+      ).filter(d => !isNaN(d.peak)).sort((a, b) => b.peak - a.peak);
+
+      const x = d3.scaleLinear().domain([0, d3.max(peakByState, d => d.peak)]).nice().range([0, width]);
+      const y = d3.scaleBand().domain(peakByState.map(d => d.state)).range([0, height]).padding(0.25);
+
+      svg.append("g").selectAll("rect")
+        .data(peakByState)
+        .join("rect")
+        .attr("x", 0)
+        .attr("y", d => y(d.state))
+        .attr("width", d => x(d.peak))
+        .attr("height", y.bandwidth())
+        .attr("fill", "#4caf50")
+        .on("mouseover", (event, d) => {
+          tooltip.style("display", "block").html(`<strong>${d.state}</strong><br/>Peak Cases: ${d.peak.toLocaleString()}`);
+        })
+        .on("mousemove", event => {
+          tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY + 10}px`);
+        })
+        .on("mouseout", () => tooltip.style("display", "none"));
+
+      svg.append("g").call(d3.axisLeft(y));
+      svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+
+      const top = peakByState[0];
+      svg.append("g").call(d3.annotation().annotations([{
+        ...annotationStyle,
+        x: x(top.peak) * 0.3,
+        y: y(top.state) + y.bandwidth() / 2,
+        dx: 180,
+        dy: -80,
+        note: {
+          ...annotationStyle.note,
+          title: "Highest Peak",
+          label: `${top.state} had the highest daily cases`
+        }
+      }]));
+    });
+  </script>
+</body>
+</html>

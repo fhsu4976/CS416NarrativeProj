@@ -1,0 +1,113 @@
+<!-- scene2.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scene 2: Surges and Spikes</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 40px; }
+    svg { width: 100%; height: 500px; overflow: visible; }
+    button { margin-top: 20px; padding: 10px 20px; }
+    #tooltip {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 6px;
+      font-size: 12px;
+      border-radius: 4px;
+      display: none;
+      pointer-events: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <h2>Scene 2: Surges and Spikes</h2>
+  <h3>Cases trend across the US</h3>
+  <svg id="usTrend"></svg>
+  <button onclick="location.href='scene1.html'">Back</button>
+  <button onclick="location.href='scene3.html'">What About Individual States?</button>
+  <div id="tooltip"></div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
+  <script>
+    const margin = {top: 60, right: 60, bottom: 50, left: 70};
+    const width = 960 - margin.left - margin.right;
+    const height = 500 - margin.top - margin.bottom;
+
+    const svg = d3.select("#usTrend")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const tooltip = d3.select("#tooltip");
+
+    const annotationStyle = {
+      note: { wrap: 160, padding: 10, align: "middle" },
+      type: d3.annotationCalloutCircle,
+      connector: { end: "dot" },
+      color: "#333"
+    };
+
+    d3.csv("covid_data.csv", d => ({
+      date: new Date(d.date),
+      cases: +d.cases
+    })).then(data => {
+      const nested = d3.rollup(data, v => d3.sum(v, d => d.cases), d => +d.date);
+      const timeSeries = Array.from(nested, ([ts, cases]) => ({
+        date: new Date(ts),
+        cases
+      }));
+
+      const x = d3.scaleTime().domain(d3.extent(timeSeries, d => d.date)).range([0, width]);
+      const y = d3.scaleLinear().domain([0, d3.max(timeSeries, d => d.cases)]).nice().range([height, 0]);
+
+      svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+      svg.append("g").call(d3.axisLeft(y));
+
+      svg.append("path")
+        .datum(timeSeries)
+        .attr("fill", "none")
+        .attr("stroke", "steelblue")
+        .attr("stroke-width", 2)
+        .attr("d", d3.line().x(d => x(d.date)).y(d => y(d.cases)));
+
+      svg.selectAll("circle")
+        .data(timeSeries)
+        .join("circle")
+        .attr("cx", d => x(d.date))
+        .attr("cy", d => y(d.cases))
+        .attr("r", 4)
+        .attr("fill", "steelblue")
+        .on("mouseover", (event, d) => {
+          tooltip.style("display", "block").html(
+            `<strong>${d.date.toLocaleDateString()}</strong><br/>Cases: ${d.cases.toLocaleString()}`
+          );
+        })
+        .on("mousemove", (event) => {
+          tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY + 10}px`);
+        })
+        .on("mouseout", () => tooltip.style("display", "none"));
+
+      const julyPoint = timeSeries.find(d => d.date.getFullYear() === 2020 && d.date.getMonth() === 6);
+      if (julyPoint) {
+        svg.append("g").call(d3.annotation().annotations([{
+          ...annotationStyle,
+          x: x(julyPoint.date),
+          y: y(julyPoint.cases),
+          dx: 100,
+          dy: -100,
+          note: {
+            ...annotationStyle.note,
+            title: "Summer Surge",
+            label: "Cases spiked across the US in July 2020"
+          }
+        }]));
+      }
+    });
+  </script>
+</body>
+</html>
