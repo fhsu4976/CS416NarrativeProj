@@ -361,35 +361,40 @@
       }
     
       // ===== SCENE 3 =====
-      const margin3 = {top: 60, right: 60, bottom: 50, left: 100};
-      const width3 = fullWidth - margin3.left - margin3.right;
-      const height3 = fullHeight - margin3.top - margin3.bottom;
-    
-      const svg3 = d3.select("#barChart")
-        .attr("width", fullWidth)
-        .attr("height", fullHeight)
-        .attr("viewBox", `0 0 ${fullWidth} ${fullHeight}`)
-        .style("overflow", "visible");
-    
-      svg3.selectAll("*").remove();
-    
-      const barGroup = svg3.append("g")
-        .attr("transform", `translate(${margin3.left},${margin3.top})`);
-    
+      const margin3 = { top: 60, right: 60, bottom: 50, left: 100 };
+      const rowHeight = 25; // spacing between each state bar
+
       const peakByState = Array.from(
         d3.rollup(data, v => d3.max(v, d => d.Cases), d => d.State),
         ([State, Peak]) => ({ State, Peak })
-      ).filter(d => !isNaN(d.Peak)).sort((a, b) => b.Peak - a.Peak);
-    
+      )
+        .filter(d => !isNaN(d.Peak))
+        .sort((a, b) => b.Peak - a.Peak);
+
+      const height3 = peakByState.length * rowHeight;
+      const fullHeight3 = height3 + margin3.top + margin3.bottom;
+      const width3 = fullWidth - margin3.left - margin3.right;
+
+      const svg3 = d3.select("#barChart")
+        .attr("width", fullWidth)
+        .attr("height", fullHeight3)
+        .attr("viewBox", `0 0 ${fullWidth} ${fullHeight3}`)
+        .style("overflow", "visible");
+
+      svg3.selectAll("*").remove();
+
+      const barGroup = svg3.append("g")
+        .attr("transform", `translate(${margin3.left},${margin3.top})`);
+
       const x3 = d3.scaleLinear()
         .domain([0, d3.max(peakByState, d => d.Peak)]).nice()
         .range([0, width3 - 100]);
-    
+
       const y3 = d3.scaleBand()
         .domain(peakByState.map(d => d.State))
         .range([0, height3])
-        .padding(0.4);
-    
+        .padding(0.3);
+
       barGroup.append("g")
         .selectAll("rect")
         .data(peakByState)
@@ -405,24 +410,26 @@
         })
         .on("mousemove", (event) => moveTooltip([event.pageX, event.pageY]))
         .on("mouseout", hideTooltip);
-    
+
       barGroup.append("g")
-        .call(d3.axisLeft(y3).tickSize(5))
+        .call(d3.axisLeft(y3).tickSize(0))
         .selectAll("text")
-        .attr("font-size", "15px")
-        .attr('dy', '1em');
-    
+        .attr("font-size", "13px")
+        .attr("dy", "0.35em")
+        .style("text-anchor", "start")
+        .attr("x", -90); // shift text left to avoid overlap with bars
+
       barGroup.append("g")
         .attr("transform", `translate(0,${height3})`)
         .call(d3.axisBottom(x3).ticks(6));
-    
-      // Annotation for highest peak - position it better to avoid overlap
+
+      // Annotation for highest peak
       if (peakByState.length > 0) {
         const topState = peakByState[0];
-        const baseX = x3(topState.Peak) * 0.5; // Position at middle of the longest bar
+        const baseX = x3(topState.Peak) * 0.5;
         const baseY = y3(topState.State) + y3.bandwidth() / 2;
-        const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3, 'scene3');
-    
+        const { dx, dy } = computeAnnotationOffsets(baseX, baseY, width3, height3, 'scene3');
+
         barGroup.append("g").call(
           d3.annotation().annotations([{
             ...annotationStyle,
@@ -435,8 +442,7 @@
               title: "Highest Peak",
               label: `${topState.State} recorded the highest daily case count.`,
               wrap: 160,
-              padding: 8,
-              lineType: "horizontal"
+              padding: 8
             }
           }])
         );
