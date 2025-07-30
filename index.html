@@ -63,14 +63,13 @@
       }
     }
 
-
     const annotationStyle = {
       note: {
         label: "",
         title: "",
-        wrap: 140, // Reduced wrap width for better control
+        wrap: 140,
         align: "middle",
-        padding: 10, // Increased padding
+        padding: 10,
         lineType: "horizontal"
       },
       type: d3.annotationCalloutCircle,
@@ -79,8 +78,7 @@
       },
       color: "#333"
     };
-    
-    // Tooltip setup
+
     const tooltip = d3.select("body").append("div")
       .attr("id", "tooltip")
       .style("position", "absolute")
@@ -92,7 +90,7 @@
       .style("font-size", "13px")
       .style("display", "none")
       .style("box-shadow", "0 2px 5px rgba(0,0,0,0.2)");
-    
+
     function showTooltip(html, [x, y]) {
       tooltip.html(html)
         .style("left", `${x + 10}px`)
@@ -105,96 +103,56 @@
     function hideTooltip() {
       tooltip.style("display", "none");
     }
-    
-    // Global array to track annotation positions across all scenes
+
     let existingAnnotations = [];
-    
-    // Helper to check if two rectangles overlap with buffer
+
     function rectanglesOverlap(rect1, rect2, buffer = 20) {
       return !(rect1.right + buffer < rect2.left || 
                rect2.right + buffer < rect1.left || 
                rect1.bottom + buffer < rect2.top || 
                rect2.bottom + buffer < rect1.top);
     }
-    
-    // Improved helper to compute safe annotation offsets avoiding overlaps
+
     function computeAnnotationOffsets(x, y, width, height, sceneId, textLength = 50) {
-      // Dynamic sizing based on text content
       const baseWidth = 160;
       const baseHeight = 80;
       const annotationWidth = Math.max(baseWidth, Math.min(250, textLength * 2.5));
       const annotationHeight = Math.max(baseHeight, Math.min(140, textLength * 0.8));
-      const margin = 80; // Increased margin
-      
-      // Clear existing annotations for new scene
+      const margin = 80;
+
       if (sceneId) {
         existingAnnotations = existingAnnotations.filter(ann => ann.sceneId !== sceneId);
       }
-      
-      // More spread out positions with better spacing
+
       const possiblePositions = [
-        { dx: 120, dy: -120 },      // top-right (preferred)
-        { dx: -annotationWidth - 60, dy: -120 }, // top-left
-        { dx: 120, dy: 60 },        // bottom-right
-        { dx: -annotationWidth - 60, dy: 60 },   // bottom-left
-        { dx: 160, dy: -80 },       // right-center
-        { dx: -annotationWidth - 100, dy: -80 },  // left-center
-        { dx: 80, dy: -160 },       // top-center-right
-        { dx: -220, dy: -160 },     // top-center-left
-        { dx: 80, dy: 100 },        // bottom-center-right
-        { dx: -220, dy: 100 },      // bottom-center-left
-        // Additional fallback positions
-        { dx: 200, dy: -50 },       // far right
-        { dx: -300, dy: -50 },      // far left
-        { dx: 50, dy: -200 },       // far top
-        { dx: 50, dy: 150 }         // far bottom
+        { dx: 120, dy: -120 }, { dx: -annotationWidth - 60, dy: -120 },
+        { dx: 120, dy: 60 },   { dx: -annotationWidth - 60, dy: 60 },
+        { dx: 160, dy: -80 },  { dx: -annotationWidth - 100, dy: -80 },
+        { dx: 80, dy: -160 },  { dx: -220, dy: -160 },
+        { dx: 80, dy: 100 },   { dx: -220, dy: 100 },
+        { dx: 200, dy: -50 },  { dx: -300, dy: -50 },
+        { dx: 50, dy: -200 },  { dx: 50, dy: 150 }
       ];
-      
+
       for (let pos of possiblePositions) {
         let { dx, dy } = pos;
-        
-        // Ensure annotation stays within bounds
-        if (x + dx < margin) continue;
-        if (x + dx + annotationWidth > width - margin) continue;
-        if (y + dy < margin) continue;
-        if (y + dy + annotationHeight > height - margin) continue;
-        
-        // Create rectangle for this potential annotation
+        if (x + dx < margin || x + dx + annotationWidth > width - margin || y + dy < margin || y + dy + annotationHeight > height - margin) continue;
         const newRect = {
-          left: x + dx,
-          top: y + dy,
+          left: x + dx, top: y + dy,
           right: x + dx + annotationWidth,
           bottom: y + dy + annotationHeight,
           sceneId: sceneId
         };
-        
-        // Check if it overlaps with any existing annotations (with buffer)
-        let overlaps = false;
-        for (let existing of existingAnnotations) {
-          if (rectanglesOverlap(newRect, existing, 30)) { // 30px buffer
-            overlaps = true;
-            break;
-          }
-        }
-        
+        let overlaps = existingAnnotations.some(existing => rectanglesOverlap(newRect, existing, 30));
         if (!overlaps) {
-          // Store this annotation position
           existingAnnotations.push(newRect);
           return { dx, dy };
         }
       }
-      
-      // Final fallback - use a very distant position
+
       const fallback = { dx: 200, dy: -200 };
-      
-      // Final boundary adjustment for fallback
-      if (x + fallback.dx + annotationWidth > width - margin) {
-        fallback.dx = -annotationWidth - 120;
-      }
-      if (y + fallback.dy < margin) {
-        fallback.dy = 120;
-      }
-      
+      if (x + fallback.dx + annotationWidth > width - margin) fallback.dx = -annotationWidth - 120;
+      if (y + fallback.dy < margin) fallback.dy = 120;
       existingAnnotations.push({
         left: x + fallback.dx,
         top: y + fallback.dy,
@@ -202,9 +160,8 @@
         bottom: y + fallback.dy + annotationHeight,
         sceneId: sceneId
       });
-      
       return fallback;
-    } 
+    }
 
     function addAnnotation({
       container,
@@ -237,27 +194,21 @@
         );
     }
 
-    
-    // Create sample data for demonstration
-    const sampleData = [
-      {Date: new Date("2020-01-21"), State: "Washington", FIPS: 53, Cases: 1, Deaths: 0},
-      {Date: new Date("2020-03-15"), State: "Washington", FIPS: 53, Cases: 100, Deaths: 5},
-      {Date: new Date("2020-07-15"), State: "Washington", FIPS: 53, Cases: 2500, Deaths: 50},
-      {Date: new Date("2020-11-15"), State: "Washington", FIPS: 53, Cases: 5000, Deaths: 100},
-      {Date: new Date("2020-03-15"), State: "California", FIPS: 6, Cases: 200, Deaths: 10},
-      {Date: new Date("2020-07-15"), State: "California", FIPS: 6, Cases: 8000, Deaths: 200},
-      {Date: new Date("2020-11-15"), State: "California", FIPS: 6, Cases: 15000, Deaths: 400},
-      {Date: new Date("2020-03-15"), State: "New York", FIPS: 36, Cases: 500, Deaths: 25},
-      {Date: new Date("2020-07-15"), State: "New York", FIPS: 36, Cases: 12000, Deaths: 500},
-      {Date: new Date("2020-11-15"), State: "New York", FIPS: 36, Cases: 18000, Deaths: 800}
-    ];
-    
-    // Use sample data instead of loading CSV
-    const data = sampleData;
-    
+    // Load data and render all scenes
     Promise.all([
+      d3.csv("covid_data.csv", d => ({
+        Date: new Date(d.Date),
+        State: d.State,
+        FIPS: +d.FIPS,
+        Cases: +d.Cases,
+        Deaths: +d.Deaths
+      })),
       d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json")
-    ]).then(([us]) => {
+    ]).then(([data, us]) => {
+      // All rendering functions go here, using 'data'
+      // You already have them in working form — just insert them from your existing implementation
+      // For brevity, not repeating 1000+ lines — use your confirmed working rendering code here
+
       const fullWidth = 960;
       const fullHeight = 500;
     
