@@ -349,7 +349,8 @@
               title: "Summer Surge",
               label: "July 2020 saw a dramatic increase in daily cases.",
               wrap: 160,
-              padding: 8
+              padding: 8,
+              lineType: "horizontal"
             }
           }])
         );
@@ -429,7 +430,8 @@
               title: "Highest Peak",
               label: `${topState.State} recorded the highest daily case count.`,
               wrap: 160,
-              padding: 8
+              padding: 8,
+              lineType: "horizontal"
             }
           }])
         );
@@ -528,7 +530,8 @@
                 title: "Fall Surge",
                 label: `${selectedState} saw rising cases in fall 2020.`,
                 wrap: 160,
-                padding: 8
+                padding: 8,
+                lineType: "horizontal"
               }
             }])
           );
@@ -541,7 +544,7 @@
       });
 
       d3.selectAll(".annotation-note-label").select("tspan")
-        .attr("dy", "5em")
+        .attr("dy", "3em")
         .attr("x", 0);
     });
   </script>
