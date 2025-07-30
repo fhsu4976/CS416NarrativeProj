@@ -62,7 +62,7 @@
         title: "",
         wrap: 160,
         align: "middle",
-        padding: 80,
+        padding: 12,
         lineType: "horizontal"
       },
       type: d3.annotationCalloutCircle,
@@ -341,6 +341,7 @@
             dx: dx2,
             dy: dy2,
             note: {
+              ...annotationStyle.note,
               title: "Summer Surge",
               label: "July 2020 saw a dramatic increase in daily cases."
             }
@@ -418,6 +419,7 @@
             dx,
             dy,
             note: {
+              ...annotationStyle.note,
               title: "Highest Peak",
               label: `${topState.State} recorded the highest daily case count.`
             }
@@ -514,6 +516,7 @@
               dx,
               dy,
               note: {
+              ...annotationStyle.note,
                 title: "Fall Surge",
                 label: `${selectedState} saw rising cases in fall 2020.`
               }
