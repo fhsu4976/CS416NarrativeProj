@@ -34,7 +34,7 @@ const annotationStyle = {
       .attr("stroke", "#fff")
       .attr("d", path);
   
-    const firstCase = data.find(d => d.Date === "2020-01-21" && d.State === "Washington");
+    const firstCase = data.find(d => d.Date instanceof Date && d.Date.getFullYear() === 2020 && d.Date.getMonth() === 0 && d.Date.getDate() === 21 && d.State === "Washington");
     const projection = d3.geoAlbersUsa().fitSize([960, 500], usStates);
     const coords = projection([-122.3321, 47.6062]); // Seattle, WA
   
@@ -69,7 +69,7 @@ const annotationStyle = {
       d => d.Date
     );
   
-    const timeSeries = Array.from(dailyCases, ([Date, Cases]) => ({ Date: new Date(Date), Cases }));
+    const timeSeries = Array.from(dailyCases, ([date, Cases]) => ({ Date: date, Cases }));
   
     const x2 = d3.scaleTime()
       .domain(d3.extent(timeSeries, d => d.Date))
@@ -179,7 +179,7 @@ const annotationStyle = {
       svg4.selectAll("*").remove();
   
       const stateData = data.filter(d => d.State === selectedState);
-      const timeData = stateData.map(d => ({ Date: new Date(d.Date), Cases: d.Cases }));
+      const timeData = stateData.map(d => ({ Date: d.Date, Cases: d.Cases }));
   
       const x4 = d3.scaleTime()
         .domain(d3.extent(timeData, d => d.Date))
@@ -206,7 +206,7 @@ const annotationStyle = {
           .x(d => x4(d.Date))
           .y(d => y4(d.Cases)));
   
-      const novData = timeData.find(d => d.Date.getMonth() === 10); // November = 10 (0-based index)
+      const novData = timeData.find(d => d.Date.getMonth() === 10); // November = 10
       if (novData) {
         const annotations4 = d3.annotation()
           .annotations([{
@@ -224,7 +224,7 @@ const annotationStyle = {
     }
   
     drawStateChart(stateList[0]);
-    dropdown.on("change", function() {
+    dropdown.on("change", function () {
       drawStateChart(this.value);
     });
   
