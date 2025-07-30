@@ -36,13 +36,18 @@ const annotationStyle = {
   
   // Helper to compute safe annotation offsets to keep inside view
   function computeAnnotationOffsets(x, y, width, height, margin = 40) {
-    let dx = 40, dy = -50;
-    if (x + dx > width - margin) dx = -70;
-    if (x + dx < margin) dx = 70;
-    if (y + dy < margin) dy = 40;
-    if (y + dy > height - margin) dy = -40;
-    return {dx, dy};
+    let dx = 60;
+    let dy = -60;
+  
+    if (x + dx + 100 > width - margin) dx = -100;
+    if (x + dx < margin) dx = 60;
+  
+    if (y + dy < margin) dy = 60;
+    if (y + dy > height - margin) dy = -60;
+  
+    return { dx, dy };
   }
+  
   
   Promise.all([
     d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
