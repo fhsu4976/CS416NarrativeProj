@@ -11,7 +11,9 @@
     svg { width: 100%; height: 500px; overflow: visible; position: relative;}
     button { margin-top: 20px; padding: 10px 20px; }
     #dropdown { margin-top: 20px; }
-    .annotation { font-size: 14px; fill: darkslategray; font-style: italic; }
+    .annotation { font-size: 12px; fill: darkslategray; font-style: italic; }
+    .annotation-note-title { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+    .annotation-note-label { font-size: 12px; line-height: 1.3; }
     #tooltip { z-index: 1000; }
   </style>
 </head>
@@ -58,10 +60,16 @@
       note: {
         label: "",
         title: "",
-        wrap: 180,
-        align: "middle"
+        wrap: 160,
+        align: "middle",
+        padding: 8,
+        lineType: "horizontal"
       },
-      type: d3.annotationCalloutCircle
+      type: d3.annotationCalloutCircle,
+      connector: {
+        end: "dot"
+      },
+      color: "#333"
     };
     
     // Tooltip setup
@@ -102,9 +110,9 @@
     }
     
     // Improved helper to compute safe annotation offsets avoiding overlaps
-    function computeAnnotationOffsets(x, y, width, height, sceneId, margin = 50) {
-      const annotationWidth = 200;
-      const annotationHeight = 100;
+    function computeAnnotationOffsets(x, y, width, height, sceneId, margin = 60) {
+      const annotationWidth = 220;
+      const annotationHeight = 120;
       
       // Clear existing annotations for new scene
       if (sceneId) {
@@ -112,20 +120,22 @@
       }
       
       const possiblePositions = [
-        { dx: 80, dy: -80 },        // top-right
-        { dx: -annotationWidth - 30, dy: -80 }, // top-left
-        { dx: 80, dy: 80 },         // bottom-right
-        { dx: -annotationWidth - 30, dy: 80 },  // bottom-left
-        { dx: 120, dy: -40 },       // right-center
-        { dx: -annotationWidth - 60, dy: -40 }, // left-center
-        { dx: 40, dy: -120 },       // top-center-right
-        { dx: -160, dy: -120 }      // top-center-left
+        { dx: 100, dy: -100 },      // top-right (preferred)
+        { dx: -annotationWidth - 40, dy: -100 }, // top-left
+        { dx: 100, dy: 40 },        // bottom-right
+        { dx: -annotationWidth - 40, dy: 40 },   // bottom-left
+        { dx: 140, dy: -60 },       // right-center
+        { dx: -annotationWidth - 80, dy: -60 },  // left-center
+        { dx: 60, dy: -140 },       // top-center-right
+        { dx: -180, dy: -140 },     // top-center-left
+        { dx: 60, dy: 80 },         // bottom-center-right
+        { dx: -180, dy: 80 }        // bottom-center-left
       ];
       
       for (let pos of possiblePositions) {
         let { dx, dy } = pos;
         
-        // Ensure annotation stays within bounds
+        // Ensure annotation stays within bounds with more generous margins
         if (x + dx < margin) continue;
         if (x + dx + annotationWidth > width - margin) continue;
         if (y + dy < margin) continue;
@@ -156,8 +166,17 @@
         }
       }
       
-      // Fallback - use first position even if it overlaps
-      const fallback = possiblePositions[0];
+      // Fallback - use a far offset position to minimize overlap
+      const fallback = { dx: 150, dy: -150 };
+      
+      // Final boundary adjustment for fallback
+      if (x + fallback.dx + annotationWidth > width - margin) {
+        fallback.dx = -annotationWidth - 60;
+      }
+      if (y + fallback.dy < margin) {
+        fallback.dy = 60;
+      }
+      
       existingAnnotations.push({
         left: x + fallback.dx,
         top: y + fallback.dy,
@@ -216,7 +235,7 @@
           .attr("stroke", "black")
           .attr("stroke-width", 1);
     
-        const {dx, dy} = computeAnnotationOffsets(x, y, fullWidth, fullHeight);
+        const {dx, dy} = computeAnnotationOffsets(x, y, fullWidth, fullHeight, 'scene1');
     
         svg1.append("g").call(
           d3.annotation().annotations([{
@@ -224,8 +243,10 @@
             x, y,
             dx, dy,
             note: {
+              ...annotationStyle.note,
               title: "First Confirmed Case",
-              label: "Jan 21, 2020 — Washington state's first COVID-19 case."
+              label: "Jan 21, 2020 — Washington state's first COVID-19 case.",
+              wrap: 160
             }
           }])
         );
@@ -310,7 +331,7 @@
       if (julyData) {
         const annX2 = x2(julyData.Date);
         const annY2 = y2(julyData.Cases);
-        const {dx: dx2, dy: dy2} = computeAnnotationOffsets(annX2, annY2, width2, height2);
+        const {dx: dx2, dy: dy2} = computeAnnotationOffsets(annX2, annY2, width2, height2, 'scene2');
     
         trendGroup.append("g").call(
           d3.annotation().annotations([{
@@ -387,7 +408,7 @@
         const topState = peakByState[0];
         const baseX = x3(topState.Peak) * 0.5; // Position at middle of the longest bar
         const baseY = y3(topState.State) + y3.bandwidth() / 2;
-        const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3);
+        const {dx, dy} = computeAnnotationOffsets(baseX, baseY, width3, height3, 'scene3');
     
         barGroup.append("g").call(
           d3.annotation().annotations([{
@@ -483,7 +504,7 @@
           const midNov = novemberData[Math.floor(novemberData.length / 2)];
           const novX = x4(midNov.Date);
           const novY = y4(midNov.Cases);
-          const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4);
+          const {dx, dy} = computeAnnotationOffsets(novX, novY, width4, height4, 'scene4');
     
           lineGroup.append("g").call(
             d3.annotation().annotations([{
