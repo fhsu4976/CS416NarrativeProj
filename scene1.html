@@ -8,7 +8,7 @@
   <style>
     body { font-family: sans-serif; margin: 0; padding: 0; }
     h2, h3 { margin-left: 40px; }
-    svg { width: 100%; height: 500px; overflow: visible; margin-top: 60px; }  /* <-- updated */
+    svg { width: 100%; height: 500px; overflow: visible; margin-top: 60px; } 
     button { margin: 20px 40px; padding: 10px 20px; }
   </style>
   
@@ -58,12 +58,13 @@
         .attr("stroke", "#fff")
         .attr("d", path);
 
-      const locations = [
-        { name: "Seattle", coords: [-122.3321, 47.6062], type: "first", title: "Patient Zero", label: "Jan 21, 2020 — First US case from Wuhan traveler", dx: -180, dy: -100 },
-        { name: "NYC", coords: [-74.0060, 40.7128], type: "hotspot", title: "NYC Epicenter", label: "March 2020 — Dense population made NYC the early US hotspot", dx: 60, dy: -80 },
-        { name: "SFO", coords: [-122.3753, 37.6213], type: "airport", title: "SFO Gateway", label: "Asia-Pacific hub accelerated West Coast spread", dx: -160, dy: 40 },
-        { name: "LAX", coords: [-118.4085, 33.9425], type: "airport", title: "LAX Hub", label: "Busiest West Coast airport connected global hotspots", dx: 60, dy: 60 }
-      ];
+        const locations = [
+            { name: "Seattle", coords: [-122.3321, 47.6062], type: "first", title: "Patient Zero", label: "Jan 21, 2020: First US case from Wuhan traveler", dx: -180, dy: 0 },
+            { name: "NYC", coords: [-74.0060, 40.7128], type: "hotspot", title: "NYC Epicenter", label: "March 2020:  Dense population made NYC the early US hotspot", dx: 60, dy: -80 },
+            { name: "SFO", coords: [-122.3753, 37.6213], type: "airport", title: "SFO Gateway", label: "Asia-Pacific hub accelerated West Coast spread", dx: -160, dy: 40 },
+            { name: "LAX", coords: [-118.4085, 33.9425], type: "airport", title: "LAX Hub", label: "Busiest West Coast airport connected global hotspots", dx: 130, dy: -20 },
+            { name: "ORD", coords: [-87.9073, 41.9742], type: "airport", title: "ORD - Major Midwest Hub", label: "One of the busiest hubs in the US. May have been a key connection point during early spread", dx: -120, dy: -80 }
+            ];
 
       locations.forEach(loc => {
         const [x, y] = projection(loc.coords);

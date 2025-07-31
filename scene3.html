@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Scene 3: State-by-State Peaks</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 40px; }
+    body { font-family: sans-serif; margin: 0; padding: 40px; padding-bottom: 100px; padding-top: 50px;}
     svg { width: 100%; height: 800px; overflow: visible; }
     button { margin-top: 20px; padding: 10px 20px; }
     #tooltip {
@@ -24,7 +24,7 @@
 </head>
 <body>
   <h2>Scene 3: State-by-State Peaks</h2>
-  <h3>Some states had it worse than others</h3>
+  <h3>Some states had it worse than others...</h3>
   <svg id="barChart"></svg>
   <button onclick="location.href='scene2.html'">Back</button>
   <button onclick="location.href='scene4.html'">Explore Your State</button>
@@ -34,7 +34,7 @@
   <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
   <script>
     const margin = { top: 60, right: 60, bottom: 60, left: 140 };
-    const fullWidth = 1200, fullHeight = 900;
+    const fullWidth = 1200, fullHeight = 850;
     const width = fullWidth - margin.left - margin.right;
     const height = fullHeight - margin.top - margin.bottom;
 
@@ -72,30 +72,93 @@
         .attr("width", d => x(d.peak))
         .attr("height", y.bandwidth())
         .attr("fill", "#4caf50")
-        .on("mouseover", (event, d) => {
-          tooltip.style("display", "block").html(`<strong>${d.state}</strong><br/>Peak Cases: ${d.peak.toLocaleString()}`);
+        .on("mouseover", function (event, d) {
+            d3.select(this)
+            .transition()
+            .duration(150)
+            .attr("fill", "#ff7043")
+            .attr("height", y.bandwidth() + 6)
+            .attr("y", y(d.state) - 3); 
+
+            tooltip.style("display", "block")
+            .html(`<strong>${d.state}</strong><br/>Peak Cases: ${d.peak.toLocaleString()}`);
         })
         .on("mousemove", event => {
-          tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY + 10}px`);
+            tooltip
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY + 10}px`);
         })
-        .on("mouseout", () => tooltip.style("display", "none"));
+        .on("mouseout", function (event, d) {
+            d3.select(this)
+            .transition()
+            .duration(150)
+            .attr("fill", "#4caf50")
+            .attr("height", y.bandwidth())
+            .attr("y", y(d.state));
+
+            tooltip.style("display", "none");
+        });
+
 
       svg.append("g").call(d3.axisLeft(y));
       svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
 
-      const top = peakByState[0];
-      svg.append("g").call(d3.annotation().annotations([{
+      const allAnnotations = [];
+
+    const top = peakByState[0];
+    if (top) {
+    allAnnotations.push({
         ...annotationStyle,
         x: x(top.peak) * 0.3,
         y: y(top.state) + y.bandwidth() / 2,
-        dx: 180,
-        dy: -80,
+        dx: 70,
+        dy: -50,
         note: {
-          ...annotationStyle.note,
-          title: "Highest Peak",
-          label: `${top.state} had the highest daily cases`
+        ...annotationStyle.note,
+        title: "Highest Peak",
+        label: `${top.state} had the highest daily cases`
         }
-      }]));
+    });
+    }
+
+    const nd = peakByState.find(d => d.state === "North Dakota");
+    if (nd) {
+    allAnnotations.push({
+        ...annotationStyle,
+        x: x(nd.peak) * 0.6,
+        y: y(nd.state) + y.bandwidth() / 2,
+        dx: 150,
+        dy: -50,
+        note: {
+        ...annotationStyle.note,
+        title: "Surprise Hotspot",
+        label: "North Dakota saw an extreme surge despite a small population."
+        }
+    });
+    }
+
+    const vt = peakByState.find(d => d.state === "Vermont");
+    if (vt) {
+    allAnnotations.push({
+        ...annotationStyle,
+        color: "green",
+        x: x(vt.peak) + 10,
+        y: y(vt.state) + y.bandwidth() / 2,
+        dx: 350,
+        dy: -10,
+        note: {
+        ...annotationStyle.note,
+        title: "Relative Success",
+        label: "Vermont maintained some of the lowest peak case numbers in the country."
+        }
+    });
+    }
+
+    if (allAnnotations.length > 0) {
+        svg.append("g").call(d3.annotation().annotations(allAnnotations));
+    }
+
+
     });
   </script>
 </body>

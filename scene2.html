@@ -82,31 +82,145 @@
         .attr("cy", d => y(d.cases))
         .attr("r", 4)
         .attr("fill", "steelblue")
-        .on("mouseover", (event, d) => {
-          tooltip.style("display", "block").html(
-            `<strong>${d.date.toLocaleDateString()}</strong><br/>Cases: ${d.cases.toLocaleString()}`
-          );
-        })
-        .on("mousemove", (event) => {
-          tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY + 10}px`);
-        })
-        .on("mouseout", () => tooltip.style("display", "none"));
+        .on("mouseover", function (event, d) {
+            d3.select(this)
+            .transition()
+            .duration(150)
+            .attr("r", 12)
+            .attr("fill", "#ff7043");
 
-      const julyPoint = timeSeries.find(d => d.date.getFullYear() === 2020 && d.date.getMonth() === 6);
-      if (julyPoint) {
-        svg.append("g").call(d3.annotation().annotations([{
-          ...annotationStyle,
-          x: x(julyPoint.date),
-          y: y(julyPoint.cases),
-          dx: 100,
-          dy: -100,
-          note: {
+            tooltip
+            .style("display", "block")
+            .html(`<strong>${d.date.toLocaleDateString()}</strong><br/>Cases: ${d.cases.toLocaleString()}`);
+        })
+        .on("mousemove", event => {
+            tooltip
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY + 10}px`);
+        })
+        .on("mouseout", function () {
+            d3.select(this)
+            .transition()
+            .duration(150)
+            .attr("r", 4)
+            .attr("fill", "steelblue");
+
+            tooltip.style("display", "none");
+        });
+
+
+        const annotations = [];
+
+        const julyPoint = timeSeries.find(d => d.date.getFullYear() === 2020 && d.date.getMonth() === 6);
+        if (julyPoint) {
+        annotations.push({
+            ...annotationStyle,
+            x: x(julyPoint.date),
+            y: y(julyPoint.cases),
+            dx: 0,
+            dy: -100,
+            note: {
             ...annotationStyle.note,
             title: "Summer Surge",
             label: "Cases spiked across the US in July 2020"
-          }
-        }]));
-      }
+            }
+        });
+        }
+
+        const thanksgivingPoint = timeSeries.find(d => 
+            d.date.getFullYear() === 2020 && d.date.getMonth() === 11 && d.date.getDate() >= 1
+            );
+            if (thanksgivingPoint) {
+            annotations.push({
+                ...annotationStyle,
+                x: x(thanksgivingPoint.date),
+                y: y(thanksgivingPoint.cases),
+                dx: -0,
+                dy: -270,
+                note: {
+                ...annotationStyle.note,
+                title: "Thanksgiving/Winter Surge (Nov–Dec 2020)",
+                label: "The dramatic rise in cases following holiday gatherings."
+                }
+            });
+        }
+
+        const omicronPoint = timeSeries.find(d =>
+            d.date.getFullYear() === 2022 && d.date.getMonth() === 0 // January 2022
+            );
+            if (omicronPoint) {
+            annotations.push({
+                ...annotationStyle,
+                x: x(omicronPoint.date),
+                y: y(omicronPoint.cases),
+                dx: -0,
+                dy: -110,
+                note: {
+                ...annotationStyle.note,
+                title: "Omicron Spike (Dec 2021–Jan 2022)",
+                label: "A massive spike in cases driven by the highly transmissible Omicron variant."
+                }
+            });
+        }
+
+        const vaccinePoint = timeSeries.find(d =>
+            d.date.getFullYear() === 2021 && d.date.getMonth() === 0
+            );
+            if (vaccinePoint) {
+            annotations.push({
+                ...annotationStyle,
+                color: "green",
+                x: x(vaccinePoint.date),
+                y: y(vaccinePoint.cases),
+                dx: 70,
+                dy: -70,
+                note: {
+                ...annotationStyle.note,
+                title: "Vaccine Rollout Begins (Dec 2020–Jan 2021)",
+                label: "The first COVID-19 vaccines are administered, marking a hopeful turn."
+                }
+            });
+            }
+
+            const finalPoint = timeSeries[timeSeries.length - 1];
+            if (finalPoint) {
+            annotations.push({
+                ...annotationStyle,
+                x: x(finalPoint.date),
+                y: y(finalPoint.cases),
+                dx: -150,
+                dy: -50,
+                note: {
+                ...annotationStyle.note,
+                title: "Final Total (Daily Cases)",
+                label: `On ${finalPoint.date.toLocaleDateString()}, the US reported ${finalPoint.cases.toLocaleString()} cases.`
+                }
+            });
+            }
+
+            const deltaPoint = timeSeries.find(d =>
+            d.date.getFullYear() === 2021 && d.date.getMonth() === 6
+            );
+            if (deltaPoint) {
+            annotations.push({
+                ...annotationStyle,
+                x: x(deltaPoint.date),
+                y: y(deltaPoint.cases),
+                dx: 250,
+                dy: -5,
+                note: {
+                ...annotationStyle.note,
+                title: "Delta Variant Surge (Summer 2021)",
+                label: "A resurgence in cases driven by the more transmissible Delta variant."
+                }
+            });
+            }
+
+
+        if (annotations.length > 0) {
+        svg.append("g").call(d3.annotation().annotations(annotations));
+        }
+
     });
   </script>
 </body>

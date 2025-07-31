@@ -25,8 +25,25 @@
 </head>
 <body>
   <h2>Scene 4: Explore Your State</h2>
-  <h3>Select a state to explore its COVID-19 trend</h3>
+  <h3>...but everyone still suffered</h3>
   <select id="stateSelect"></select>
+  <label>
+    <input type="checkbox" id="toggleHolidays" checked />
+    Show Holidays
+  </label>
+  <br/>
+<label>
+  <input type="checkbox" id="toggleMilestones" checked />
+  Show Milestones
+</label>
+<br/>
+<label>
+  <input type="checkbox" id="toggleVariants" checked />
+  Show Variant Annotations
+</label>
+
+
+  
   <svg id="stateTrend"></svg>
   <button onclick="location.href='scene3.html'">Back</button>
   <button onclick="location.href='scene1.html'">Start Over</button>
@@ -67,57 +84,212 @@
     });
 
     select.on("change", () => renderState(select.node().value));
+    document.getElementById("toggleHolidays").addEventListener("change", () => {
+        renderState(select.node().value);
+    });
+    document.getElementById("toggleMilestones").addEventListener("change", () => {
+    renderState(select.node().value);
+    });
+    document.getElementById("toggleVariants").addEventListener("change", () => {
+    renderState(select.node().value);
+    });
+
+
+
+    const holidays = [
+        {
+            name: "July 4th",
+            date: new Date("2020-07-04"),
+            color: "#1976d2"
+        },
+        {
+            name: "Thanksgiving",
+            date: new Date("2020-11-26"),
+            color: "#e65100"
+        },
+        {
+            name: "Christmas",
+            date: new Date("2020-12-25"),
+            color: "#2e7d32"
+        },
+        {
+            name: "July 4th",
+            date: new Date("2021-07-04"),
+            color: "#1976d2"
+        },
+        {
+            name: "Thanksgiving",
+            date: new Date("2021-11-26"),
+            color: "#e65100"
+        },
+        {
+            name: "Christmas",
+            date: new Date("2021-12-25"),
+            color: "#2e7d32"
+        },
+        {
+            name: "July 4th",
+            date: new Date("2022-07-04"),
+            color: "#1976d2"
+        },
+        {
+            name: "Thanksgiving",
+            date: new Date("2022-11-26"),
+            color: "#e65100"
+        },
+        {
+            name: "Christmas",
+            date: new Date("2022-12-25"),
+            color: "#2e7d32"
+        }
+    ];
 
     function renderState(state) {
-      svg.selectAll("*").remove();
+        svg.selectAll("*").remove();
 
-      const filtered = stateData.filter(d => d.state === state);
+        const filtered = stateData.filter(d => d.state === state);
 
-      const x = d3.scaleTime().domain(d3.extent(filtered, d => d.date)).range([0, width]);
-      const y = d3.scaleLinear().domain([0, d3.max(filtered, d => d.cases)]).nice().range([height, 0]);
+        const x = d3.scaleTime().domain(d3.extent(filtered, d => d.date)).range([0, width]);
+        const y = d3.scaleLinear().domain([0, d3.max(filtered, d => d.cases)]).nice().range([height, 0]);
 
-      svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
-      svg.append("g").call(d3.axisLeft(y));
+        svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+        svg.append("g").call(d3.axisLeft(y));
 
-      svg.append("path")
-        .datum(filtered)
-        .attr("fill", "none")
-        .attr("stroke", "#f44336")
-        .attr("stroke-width", 2)
-        .attr("d", d3.line().x(d => x(d.date)).y(d => y(d.cases)));
+        svg.append("path")
+            .datum(filtered)
+            .attr("fill", "none")
+            .attr("stroke", "#f44336")
+            .attr("stroke-width", 2)
+            .attr("d", d3.line().x(d => x(d.date)).y(d => y(d.cases)));
 
-      svg.selectAll("circle")
-        .data(filtered)
-        .join("circle")
-        .attr("cx", d => x(d.date))
-        .attr("cy", d => y(d.cases))
-        .attr("r", 3)
-        .attr("fill", "#f44336")
-        .on("mouseover", (event, d) => {
-          tooltip.style("display", "block").html(`<strong>${d.date.toLocaleDateString()}</strong><br/>Cases: ${d.cases.toLocaleString()}`);
-        })
-        .on("mousemove", event => {
-          tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY + 10}px`);
-        })
-        .on("mouseout", () => tooltip.style("display", "none"));
+        svg.selectAll("circle")
+            .data(filtered)
+            .join("circle")
+            .attr("cx", d => x(d.date))
+            .attr("cy", d => y(d.cases))
+            .attr("r", 3)
+            .attr("fill", "#f44336")
+            .on("mouseover", function(event, d) {
+                d3.select(this)
+                .transition().duration(100)
+                .attr("r", 12)
+                .attr("fill", "#ff7043"); 
 
-      const peak = d3.max(filtered, d => d.cases);
-      const peakDate = filtered.find(d => d.cases === peak)?.date;
+                tooltip
+                .style("display", "block")
+                .html(`<strong>${d.date.toLocaleDateString()}</strong><br/>Cases: ${d.cases.toLocaleString()}`);
+            })
+            .on("mousemove", event => {
+                tooltip
+                .style("left", `${event.pageX + 10}px`)
+                .style("top", `${event.pageY + 10}px`);
+            })
+            .on("mouseout", function() {
+                d3.select(this)
+                .transition().duration(100)
+                .attr("r", 3)
+                .attr("fill", "#f44336");
 
-      if (peakDate && peak) {
-        svg.append("g").call(d3.annotation().annotations([{
-          type: d3.annotationCalloutCircle,
-          note: {
-            label: `${state}'s highest daily cases: ${peak.toLocaleString()}`,
-            title: "Peak Day"
-          },
-          x: x(peakDate),
-          y: y(peak),
-          dx: 100,
-          dy: -80
-        }]));
-      }
-    }
+                tooltip.style("display", "none");
+            });
+
+        const showHolidays = document.getElementById("toggleHolidays").checked;
+
+        if (showHolidays) {
+            svg.selectAll(".holiday-line")
+                .data(holidays)
+                .enter()
+                .append("line")
+                .attr("x1", d => x(d.date))
+                .attr("x2", d => x(d.date))
+                .attr("y1", 0)
+                .attr("y2", height)
+                .attr("stroke", d => d.color)
+                .attr("stroke-dasharray", "4 2")
+                .attr("stroke-width", 1.5);
+
+            svg.selectAll(".holiday-label")
+                .data(holidays)
+                .enter()
+                .append("text")
+                .attr("x", d => x(d.date))
+                .attr("y", (d, i) => -10 - (i * 14)) 
+                .attr("text-anchor", "middle")
+                .attr("font-size", "12px")
+                .attr("fill", d => d.color)
+                .text(d => d.name);
+        }
+
+        const peak = d3.max(filtered, d => d.cases);
+        const peakDate = filtered.find(d => d.cases === peak)?.date;
+
+        if (peakDate && peak) {
+            svg.append("g").call(d3.annotation().annotations([{
+            type: d3.annotationCalloutCircle,
+            note: {
+                label: `${state}'s highest daily cases: ${peak.toLocaleString()}`,
+                title: "Peak Day"
+            },
+            x: x(peakDate),
+            y: y(peak),
+            dx: 100,
+            dy: -80
+            }]));
+        }
+        const showVariants = document.getElementById("toggleVariants").checked;
+
+        if (showVariants) {
+            const variants = [
+                { name: "Delta Variant Surge", date: new Date("2021-07-15"), color: "#ff9800" },
+                { name: "Omicron Variant Surge", date: new Date("2021-12-15"), color: "#9c27b0" }
+            ];
+
+            variants.forEach(v => {
+                const point = filtered.find(d => d.date >= v.date);
+                if (point) {
+                svg.append("g").call(d3.annotation().annotations([{
+                    type: d3.annotationCalloutCircle,
+                    note: {
+                    label: v.name,
+                    title: "Variant Emergence",
+                    align: "right",
+                    wrap: 160
+                    },
+                    x: x(point.date),
+                    y: y(point.cases),
+                    dx: 20,
+                    dy: -50,
+                    color: v.color
+                }]));
+                }
+            });
+        }
+
+        const showMilestones = document.getElementById("toggleMilestones").checked;
+
+        if (showMilestones) {
+            const milestones = [10000, 50000, 1000000, 5000000];
+            milestones.forEach((ms, i) => {
+            const point = filtered.find(d => d.cases >= ms);
+            if (point) {
+                svg.append("g").call(d3.annotation().annotations([{
+                type: d3.annotationCalloutCircle,
+                note: {
+                    label: `Cases surpassed ${ms.toLocaleString()}`,
+                    title: "Milestone"
+                },
+                x: x(point.date),
+                y: y(point.cases),
+                dx: 10 + (i * 40),
+                dy: -50 + (i * -90), 
+                color: "#1976d2"
+                }]));
+            }
+            });
+        }
+
+        }
+
   </script>
 </body>
 </html>
